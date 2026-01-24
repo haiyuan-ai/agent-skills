@@ -1,10 +1,10 @@
 # ModelScope Z-Image Generator Skill
 
-一个用于 [Claude Code](https://claude.ai/claude-code) 的技能，使用 ModelScope 免费的 Z-Image 系列模型生成图片。
+一个用于 [Claude Code](https://claude.ai/claude-code) 等Coding Agent的Skill，使用 ModelScope 免费的 [造相-Z-Image-Turbo](https://modelscope.cn/models/Tongyi-MAI/Z-Image-Turbo/summary?version=master) 系列模型生成图片。
 
 ## 功能特性
 
-- 支持多个 Z-Image 模型（Turbo、Base、Edit）
+- 支持多个 Z-Image 模型（Turbo、Base、Edit）,目前默认Turbo，未来有可能扩展到Base和Edit，取决于Z-Image模型的发布时间
 - 异步生成 + 轮询机制
 - 支持多个 LoRA 配置
 - 首次使用自动引导配置 API Key
@@ -29,15 +29,15 @@ npx skills add haiyuan-ai/agent-skills --skill modelscope-zimage-generator
 
 ### 方法二：手动安装
 
-1. 下载 `modelscope-zimage-generator.skill` 文件
+1. 下载 `modelscope-zimage-generator` 文件
 2. 复制到 Claude Code skills 目录：
 
 ```bash
 # macOS/Linux
-cp modelscope-zimage-generator.skill ~/.claude/skills/
+cp modelscope-zimage-generator ~/.claude/skills/
 
 # Windows
-copy modelscope-zimage-generator.skill %USERPROFILE%\.claude\skills\
+copy modelscope-zimage-generator %USERPROFILE%\.claude\skills\
 ```
 
 ## 配置
@@ -78,7 +78,7 @@ export MODELSCOPE_API_KEY="ms-your-api-key-here"
 
 ## 使用方法
 
-### 在 Claude Code 中使用
+### 在 Claude Code/OpenCode等Coding Agnet 中使用
 
 直接用自然语言描述你想要生成的图片：
 
