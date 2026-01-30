@@ -26,18 +26,14 @@ except ImportError:
 BASE_URL = 'https://api-inference.modelscope.cn/'
 
 def get_config_path() -> Path:
-    """Get the config file path (prefer XDG config dir, otherwise ~/.config/modelscope/)"""
-    # Try XDG config directory
+    """Get the config file path (~/.config/modelscope/config.json)"""
+    # Use XDG config directory if set, otherwise ~/.config/modelscope/
     xdg_config = os.environ.get('XDG_CONFIG_HOME')
     if xdg_config:
         config_dir = Path(xdg_config) / 'modelscope'
     else:
         config_dir = Path.home() / '.config' / 'modelscope'
 
-    # Fallback to ~/.modelscope if it exists
-    legacy_dir = Path.home() / '.modelscope'
-    if legacy_dir.exists():
-        return legacy_dir / 'config.json'
     return config_dir / 'config.json'
 
 def save_api_key(api_key: str, config_path: Path) -> None:
@@ -126,7 +122,7 @@ def generate_image(
 
     Args:
         prompt: Text prompt for image generation
-        model: Model ID to use (default: Tongyi-MAI/Z-Image-Turbo)
+        model: Model ID to use (default: Tongyi-MAI/Z-Image)
         loras: Optional LoRA config - either string (single) or dict (multiple)
         output_path: Optional output file path (default: result_image.jpg)
         api_key: Optional API key (default: from env or config)
@@ -209,16 +205,20 @@ def generate_image(
 
 def main():
     """CLI entry point"""
-    if len(sys.argv) < 2:
-        print("Usage: python generate_image.py <prompt> [output_path] [model]")
-        print("Example: python generate_image.py 'A golden cat' output.jpg")
-        sys.exit(1)
+    import argparse
 
-    prompt = sys.argv[1]
-    output_path = sys.argv[2] if len(sys.argv) > 2 else None
-    model = sys.argv[3] if len(sys.argv) > 3 else "Tongyi-MAI/Z-Image-Turbo"
+    parser = argparse.ArgumentParser(description="Generate images using ModelScope Z-Image models")
+    parser.add_argument("prompt", help="Text prompt for image generation")
+    parser.add_argument("output_path", nargs="?", default=None, help="Output file path (default: result_image.jpg)")
+    parser.add_argument("--model", default="Tongyi-MAI/Z-Image-Turbo", help="Model ID to use (default: Tongyi-MAI/Z-Image-Turbo)")
 
-    generate_image(prompt, model=model, output_path=output_path)
+    args = parser.parse_args()
+
+    generate_image(
+        args.prompt,
+        model=args.model,
+        output_path=args.output_path
+    )
 
 if __name__ == "__main__":
     main()

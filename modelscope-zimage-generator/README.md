@@ -1,10 +1,10 @@
 # ModelScope Z-Image Generator Skill
 
-一个用于 [Claude Code](https://claude.ai/claude-code) 等Coding Agent的Skill，使用 ModelScope 免费的 [造相-Z-Image-Turbo](https://modelscope.cn/models/Tongyi-MAI/Z-Image-Turbo/summary?version=master) 系列模型生成图片。
+一个用于 [Claude Code](https://claude.ai/claude-code) 等 Coding Agent 的 Skill，使用 ModelScope 免费的 [Z-Image](https://modelscope.cn/models/Tongyi-MAI/Z-Image/summary) 系列模型生成图片。
 
 ## 功能特性
 
-- 支持多个 Z-Image 模型（Turbo、Base、Edit）,目前默认Turbo，未来有可能扩展到Base和Edit，取决于Z-Image模型的发布时间
+- 支持多个 Z-Image 模型（Turbo、Edit），默认使用 Turbo 快速生成
 - 异步生成 + 轮询机制
 - 支持多个 LoRA 配置
 - 首次使用自动引导配置 API Key
@@ -16,8 +16,14 @@
 | 模型 | 说明 |
 |--------|------|
 | `Tongyi-MAI/Z-Image-Turbo` | 默认，快速生成 |
-| `Tongyi-MAI/Z-Image-Base` | 更高质量 |
+| `Tongyi-MAI/Z-Image` | 平衡质量和速度 |
 | `Tongyi-MAI/Z-Image-Edit` | 图片编辑 |
+
+### 模型选择规则
+
+- 如果用户明确提到 "Z-Image"，使用 `Tongyi-MAI/Z-Image`
+- 如果用户明确提到 "Z-Image-Turbo"，使用 `Tongyi-MAI/Z-Image-Turbo`
+- 否则使用默认 `Tongyi-MAI/Z-Image-Turbo`
 
 ## 安装
 
@@ -96,8 +102,8 @@ export MODELSCOPE_API_KEY="ms-your-api-key-here"
 # 使用默认模型 Z-Image-Turbo
 python generate_image.py "A golden cat" output.jpg
 
-# 指定使用 Z-Image-Base 模型
-python generate_image.py "A golden cat" output.jpg "Tongyi-MAI/Z-Image-Base"
+# 指定使用 Z-Image 模型
+python generate_image.py "A golden cat" output.jpg --model "Tongyi-MAI/Z-Image"
 ```
 
 ### LoRA 支持

@@ -1,6 +1,6 @@
 ---
 name: modelscope-zimage-generator
-description: Generate images using ModelScope Z-Image models (Z-Image-Turbo, Z-Image-Base, Z-Image-Edit). Use when user asks to generate images, create artwork, or requests image generation functionality. Supports async generation with polling and optional LoRA configurations.
+description: Generate images using ModelScope Z-Image models (Z-Image-Turbo, Z-Image, Z-Image-Edit). Use when user asks to generate images, create artwork, or requests image generation functionality. Supports async generation with polling and optional LoRA configurations. IMPORTANT - Model Selection Rule: If the user explicitly mentions "Z-Image-Turbo" in their prompt, use "Tongyi-MAI/Z-Image-Turbo"; if they explicitly mention "Z-Image" (without Turbo), use "Tongyi-MAI/Z-Image"; otherwise, use the default "Tongyi-MAI/Z-Image-Turbo".
 ---
 
 # ModelScope Z-Image Generator
@@ -56,12 +56,18 @@ python generate_image.py "A golden cat" output.jpg
 Available Z-Image models:
 
 - `Tongyi-MAI/Z-Image-Turbo` (default, fast generation)
-- `Tongyi-MAI/Z-Image-Base` (higher quality)
+- `Tongyi-MAI/Z-Image` (balanced quality and speed)
 - `Tongyi-MAI/Z-Image-Edit` (image editing)
 
-Specify a different model using the third argument:
+### Model Selection Rule
+
+- If the user explicitly mentions "Z-Image-Turbo", use `Tongyi-MAI/Z-Image-Turbo`
+- If the user explicitly mentions "Z-Image" (without Turbo), use `Tongyi-MAI/Z-Image`
+- Otherwise, use the default `Tongyi-MAI/Z-Image-Turbo`
+
+Specify a different model using `--model`:
 ```bash
-python generate_image.py "A golden cat" output.jpg "Tongyi-MAI/Z-Image-Base"
+python generate_image.py "A golden cat" output.jpg --model "Tongyi-MAI/Z-Image-Turbo"
 ```
 
 ## LoRA Support
