@@ -1,6 +1,6 @@
 ---
 name: modelscope-zimage-generator
-description: Generate images using ModelScope Z-Image models (Z-Image-Turbo, Z-Image, Z-Image-Edit). Use when user asks to generate images, create artwork, or requests image generation functionality. Supports async generation with polling and optional LoRA configurations. IMPORTANT - Model Selection Rule: If the user explicitly mentions "Z-Image-Turbo" in their prompt, use "Tongyi-MAI/Z-Image-Turbo"; if they explicitly mention "Z-Image" (without Turbo), use "Tongyi-MAI/Z-Image"; otherwise, use the default "Tongyi-MAI/Z-Image-Turbo".
+description: "Generate images using ModelScope Z-Image models (Z-Image-Turbo, Z-Image, Z-Image-Edit). Use when user asks to generate images, create artwork, or requests image generation functionality. Supports async generation with polling and optional LoRA configurations. IMPORTANT - Model Selection Rule: If the user explicitly mentions \"Z-Image-Turbo\" in their prompt, use \"Tongyi-MAI/Z-Image-Turbo\"; if they explicitly mention \"Z-Image\" (without Turbo), use \"Tongyi-MAI/Z-Image\"; otherwise, use the default \"Tongyi-MAI/Z-Image-Turbo\"."
 ---
 
 # ModelScope Z-Image Generator
