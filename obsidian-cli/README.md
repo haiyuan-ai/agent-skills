@@ -10,10 +10,55 @@
 
 ## 安装
 
+### 一键安装（推荐）
+
+```bash
+npx skill add haiyuan-ai/agent-skills/obsidian-cli
+```
+
+安装完成后，Skill 会被复制到 `~/.claude/skills/obsidian-cli/` 或相应 Agent 的 skills 目录，Claude Code、OpenCode、Gemini CLI 等支持 Skill 协议的 Coding Agent 即可自动加载使用。
+
+### 手动安装
+
 1. 确保已安装 Obsidian 1.12.4+
 2. 在 Obsidian 中启用 CLI：设置 → 通用 → 命令行界面
-3. 按照提示注册 Obsidian CLI
-4. 将此 Skill 复制到你的 agent-skills 目录
+3. 克隆或下载此仓库的 `obsidian-cli` 文件夹到本地
+4. 将 `SKILL.md` 复制到你的 Agent skills 目录（如 `~/.claude/skills/obsidian-cli/`）
+
+## Skill 核心功能
+
+### 执行指令（Execution Instructions）
+
+Skill 内置执行指引，告诉 AI 如何正确调用 CLI 命令：
+
+- **正确做法**：使用 `Bash` 工具执行 `obsidian read path="..."`
+- **错误做法**：直接用 `Read` 工具读取文件（绕过了 CLI）
+
+### 执行流程
+
+1. **解析用户请求** → 确定操作类型（read/create/search 等）
+2. **构建 CLI 命令** → 根据命令参考选择对应语法
+3. **执行命令** → 使用 `Bash` 工具执行
+4. **返回结果** → 将命令输出返回给用户
+
+### 快速命令映射（Quick Command Mapping）
+
+Skill 提供 14 个常用命令的快速参考表，AI 可以直接找到正确的命令语法：
+
+| 用户请求 | 命令示例 |
+|---------|---------|
+| 读取笔记 | `obsidian read path="file.md"` |
+| 创建笔记 | `obsidian create path="..." content="..."` |
+| 搜索笔记 | `obsidian search query="keyword"` |
+| 列出任务 | `obsidian tasks todo` |
+| 切换任务 | `obsidian task ref="file.md:5" toggle` |
+
+### 触发条件
+
+当用户使用中英文表达以下意图时，Skill 会自动触发：
+
+- **中文**："读取 vault 中的文章"、"修改笔记内容"、"搜索关键词"、"创建新笔记"
+- **English**: "read my note", "edit this file", "search notes", "create a new note"
 
 ## 使用示例
 
