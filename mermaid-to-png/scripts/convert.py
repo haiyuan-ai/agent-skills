@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Mermaid to PNG Converter
-Convert Mermaid diagrams in Markdown files to PNG images.
+Convert Mermaid diagrams in Markdown files to styled PNG images.
 
 GitHub Repository: https://github.com/haiyuan-ai/agent-skills
 """
@@ -14,7 +14,13 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Tuple, Optional
+
+from styles import (
+    get_available_styles,
+    inject_style_into_diagram,
+    get_style_info
+)
 
 
 def extract_mermaid_diagrams(content: str) -> List[Tuple[str, str, int]]:
@@ -103,13 +109,15 @@ def replace_mermaid_with_images(content: str, image_mapping: dict) -> str:
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Convert Mermaid to PNG')
+    parser = argparse.ArgumentParser(description='Convert Mermaid to PNG with style themes')
     parser.add_argument('input', help='Input Markdown file')
     parser.add_argument('-o', '--output-dir', default='./output', help='Output directory')
     parser.add_argument('-w', '--width', type=int, default=1200, help='Image width')
     parser.add_argument('-b', '--background', default='white', help='Background color')
     parser.add_argument('-f', '--format', default='png', choices=['png', 'svg'], help='Output format')
     parser.add_argument('--replace', action='store_true', help='Replace code blocks with images')
+    parser.add_argument('--style', choices=get_available_styles(), help='Apply a built-in style theme')
+    parser.add_argument('--chart-type', default='flowchart', choices=['flowchart', 'sequence', 'gantt', 'class', 'state'], help='Optimize for specific chart type')
 
     args = parser.parse_args()
 
@@ -130,8 +138,18 @@ def main():
 
     print(f"Found {len(diagrams)} diagram(s)")
 
+    # Get style info for display
+    if args.style:
+        style_info = get_style_info(args.style)
+        if style_info:
+            print(f"Using style: {style_info['name']} - {style_info['description']}")
+
     image_mapping = {}
     for idx, (code, title, _) in enumerate(diagrams):
+        # Inject style if specified
+        if args.style:
+            code = inject_style_into_diagram(code, args.style, args.chart_type)
+
         hash_str = generate_diagram_hash(code)
         filename = f"diagram_{idx + 1}_{hash_str}.{args.format}"
         output_path = os.path.join(args.output_dir, filename)
@@ -139,11 +157,17 @@ def main():
         print(f"\nConverting diagram {idx + 1}: {title}")
         print(f"  Output: {output_path}")
 
+        # Use style background if available, otherwise use args.background
+        background = args.background
+        if args.style:
+            from styles import STYLES
+            background = STYLES.get(args.style, {}).get("background", args.background)
+
         success = convert_mermaid_to_image(
             code=code,
             output_path=output_path,
             width=args.width,
-            background=args.background,
+            background=background,
             fmt=args.format
         )
 

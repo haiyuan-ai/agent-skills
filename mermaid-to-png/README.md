@@ -8,6 +8,7 @@
 ## 功能特性
 
 - 🚀 自动提取 Markdown 中的 Mermaid 代码块
+- 🎨 **4 套内置风格主题**：深色科技、清新商务、手绘草图、渐变现代
 - 🎨 支持自定义图片宽度、背景色、格式（PNG/SVG）
 - 📝 可选替换原文中的 Mermaid 代码为图片引用
 - 📦 批量处理多个图表
@@ -63,6 +64,22 @@ python scripts/convert.py article.md --format svg
 python scripts/convert.py article.md --replace
 ```
 
+### 使用风格主题
+
+```bash
+# 深色科技风格（适合技术架构图）
+python scripts/convert.py article.md --style dark-tech --width 900
+
+# 清新商务风格（适合商务演示）
+python scripts/convert.py article.md --style fresh-business --width 900
+
+# 手绘草图风格（适合头脑风暴）
+python scripts/convert.py article.md --style hand-drawn --width 900
+
+# 渐变现代风格（适合产品展示）
+python scripts/convert.py article.md --style gradient-modern --width 900
+```
+
 ### 作为 Claude Skill 使用
 
 如果你使用 Claude Code，可以将此技能添加到 Claude：
@@ -80,10 +97,21 @@ claude mermaid-to-png /path/to/article.md --width 900 --replace
 |------|------|--------|
 | `input` | 输入的 Markdown 文件路径 | 必填 |
 | `--output-dir` | 图片输出目录 | `./output` |
+| `--style` | 风格主题（dark-tech/fresh-business/hand-drawn/gradient-modern） | 无 |
+| `--chart-type` | 图表类型优化（flowchart/sequence/gantt/class/state） | `flowchart` |
 | `--width` | 图片宽度（像素） | `1200` |
 | `--background` | 背景色（white/transparent/#RRGGBB） | `white` |
 | `--format` | 输出格式（png/svg） | `png` |
 | `--replace` | 替换原文中的 Mermaid 代码为图片引用 | `false` |
+
+### 风格主题预览
+
+| 风格 | 名称 | 适用场景 | 特点 |
+|------|------|----------|------|
+| `dark-tech` | 深色科技 | 技术架构图 | 深色背景、霓虹强调色、科技字体 |
+| `fresh-business` | 清新商务 | 商务演示 | 白色背景、蓝色强调、专业简洁 |
+| `hand-drawn` | 手绘草图 | 头脑风暴 | 纸张质感、手绘字体、轻松随意 |
+| `gradient-modern` | 渐变现代 | 产品展示 | 渐变背景、鲜艳色彩、现代感强 |
 
 ## 示例
 
