@@ -13,7 +13,11 @@
 ### 一键安装（推荐）
 
 ```bash
-npx skill add haiyuan-ai/agent-skills/obsidian-cli
+# 方式一：安装单个 Skill
+npx skills add haiyuan-ai/agent-skills/obsidian-cli
+
+# 方式二：从仓库安装指定 Skill
+npx skills add haiyuan-ai/agent-skills --skill obsidian-cli
 ```
 
 安装完成后，Skill 会被复制到 `~/.claude/skills/obsidian-cli/` 或相应 Agent 的 skills 目录，Claude Code、OpenCode、Gemini CLI 等支持 Skill 协议的 Coding Agent 即可自动加载使用。
