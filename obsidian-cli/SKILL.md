@@ -1,30 +1,83 @@
+---
+name: obsidian-cli
+description: |
+  Use when user needs to operate Obsidian Vault via CLI.
+  Triggers: vault/笔记/笔记库/Markdown 文件操作，读取/修改/优化/更新/删除/创建/整理/搜索 笔记，
+  read/edit/update/delete/create/search/organize/list notes or files,
+  管理任务/todos、标签/tags、属性/properties、模板/templates、日常日记/daily notes,
+  查看反向链接/backlinks、孤立笔记，管理插件/主题
+  Key phrases: "vault 中的文章", "优化笔记", "读取 vault", "整理笔记", "找找那篇",
+  "日常记录", "任务管理", "backlinks", "obsidian", "my notes", "md 文件",
+  "my vault", "edit note", "create note", "search vault", "organize files",
+  "list files", "delete file", "update content", "read from vault"
+allowed-tools:
+  - Bash
+metadata:
+  trigger: Obsidian Vault 操作，笔记管理，CLI 命令
+---
+
 # Obsidian CLI Skill
 
 Automate Obsidian note-taking app using Obsidian CLI (v1.12+) for note management, file operations, plugin control, and more.
 
-## Triggers
+## ⚠️ IMPORTANT: When This Skill Applies
 
-This skill triggers when user requests Obsidian note/file operations:
+### Core Triggers（核心触发）
 
-### File Operations
-- obsidian create/read/edit/delete/modify note
-- obsidian read note from vault
-- obsidian files/folders manage
-- obsidian update content
+**用户提到以下任一表达时，此 skill 适用：**
 
-### Content Management
-- obsidian search notes
-- obsidian tasks management
-- obsidian daily notes
-- obsidian tags/properties
-- obsidian modify article
+| 场景 | 中文表达示例 | English Examples |
+|------|------------|-----------------|
+| **Vault + 操作** | "vault 中的文章"、"笔记库里的内容"、"我的 md 文件" | "my vault", "notes in vault", "my md files" |
+| **读取/查看** | "读取 vault"、"看看那篇 XX 笔记" | "read my note", "show me my notes", "view this file" |
+| **修改/优化** | "修改 vault 内容"、"优化这篇文章"、"帮我改改" | "edit this note", "update my note", "modify the content" |
+| **创建/新增** | "创建新笔记"、"新增一篇 md" | "create a new note", "add a note about XX", "new note" |
+| **删除/归档** | "删除这篇笔记"、"归档旧文章" | "delete this note", "archive old files", "remove this" |
+| **整理/管理** | "整理我的 vault"、"管理笔记库" | "organize my notes", "manage my vault", "cleanup files" |
+| **搜索/查找** | "找找关于 AI 的笔记"、"搜索 vault" | "find notes about XX", "search my vault", "lookup" |
+| **列出/统计** | "列出所有文件"、"有多少笔记" | "list all files", "count my notes", "show all notes" |
+| **直接说产品名** | "obsidian create"、"用 obsidian 命令" | "obsidian cli", "run obsidian command" |
 
-### Plugins & Themes
-- obsidian plugins manage/install/enable/disable
-- obsidian themes manage/install/set
-- obsidian plugin reload/debug (dev)
+### File Operations（文件操作）
 
-### Important Notes
+- 创建/读取/编辑/修改/删除/移动/重命名 笔记或 markdown 文件
+- "帮我改下 vault 里那篇 XX 文章"、"把这篇文章移到 XX 文件夹"
+- "列出 vault 里所有的 md 文件"
+- "edit this file", "read my note", "delete the article", "move to folder"
+- obsidian create/read/edit/delete/modify/rename/move/files
+
+### Content Management（内容管理）
+
+- 搜索笔记、查找内容、"找找那篇关于 XX 的笔记"
+- "search notes", "find content", "lookup in vault"
+- 管理任务、todos、待办事项、"我还有什么没完成"
+- "my tasks", "pending todos", "what's left"
+- 管理标签 tags、属性 properties、aliases
+- 日常笔记 daily notes、"今天的日记"、"写日报"
+- "daily journal", "today's note"
+- 模板 templates、"套用会议记录模板"
+- "use template", "meeting note template"
+- obsidian search/tasks/tags/properties/daily/templates
+
+### Link & Graph（链接与图谱）
+
+- 查看反向链接 backlinks、"谁引用了这篇"
+- "backlinks", "who linked this"
+- 查看出向链接 outgoing links
+- 查找孤立笔记 orphans、"没有链接的笔记"
+- "orphan notes", "files without links"
+- 查找死胡同笔记 deadends
+- obsidian backlinks/links/orphans/deadends
+
+### Plugins & Themes（插件与主题）
+
+- 安装/启用/禁用/卸载 插件或主题
+- "给 obsidian 装个 git 插件"
+- "install plugin", "enable theme", "disable addon"
+- obsidian plugins/themes install/enable/disable/uninstall
+
+## Important Notes
+
 - **Editing files**: CLI has no direct "edit" command. Use: `read` → process text → `create --overwrite`
 - **Deleting content**: Read full file, delete externally, then `create path="xxx" overwrite`
 - **Replacing content**: Read full file, replace externally, then `create path="xxx" overwrite`
