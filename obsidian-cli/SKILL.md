@@ -20,6 +20,40 @@ metadata:
 
 Automate Obsidian note-taking app using Obsidian CLI (v1.12+) for note management, file operations, plugin control, and more.
 
+## ⚡ Execution Instructions / 执行指令
+
+**当用户触发此 skill 时，必须使用 `Bash` 工具执行 Obsidian CLI 命令：**
+
+```javascript
+// ✅ 正确做法
+Bash(`obsidian read path="${filePath}"`)
+
+// ❌ 错误做法
+// 直接用 Read 工具读取文件（绕过了 CLI）
+// 调用 TaskOutput 获取结果（这不是异步任务）
+```
+
+### 执行流程 / Workflow
+
+1. **解析用户请求** → 确定操作类型（read/create/search 等）
+2. **构建 CLI 命令** → 根据命令参考选择对应语法
+3. **执行命令** → 使用 `Bash` 工具执行
+4. **返回结果** → 将命令输出返回给用户
+
+### 前置检查 / Prerequisites
+
+执行命令前确认：
+- Obsidian 应用正在运行
+- 已启用 CLI（Settings → General → Command line interface）
+- `obsidian` 命令在 PATH 中
+
+```bash
+# 快速检查
+obsidian version
+```
+
+---
+
 ## ⚠️ IMPORTANT: When This Skill Applies
 
 ### Core Triggers（核心触发）
@@ -75,6 +109,27 @@ Automate Obsidian note-taking app using Obsidian CLI (v1.12+) for note managemen
 - "给 obsidian 装个 git 插件"
 - "install plugin", "enable theme", "disable addon"
 - obsidian plugins/themes install/enable/disable/uninstall
+
+---
+
+## 🚀 Quick Command Mapping / 快速命令映射
+
+| User Request / 用户请求 | CLI Command / CLI 命令 | Bash Example / Bash 示例 |
+|------------------------|------------------------|--------------------------|
+| "Read note" / "读取笔记" | `obsidian read path="..."` | `Bash('obsidian read path="file.md"')` |
+| "Create note" / "创建笔记" | `obsidian create path="..." content="..."` | `Bash('obsidian create path="file.md" content="..."')` |
+| "Append content" / "追加内容" | `obsidian append path="..." content="..."` | `Bash('obsidian append path="file.md" content="..."')` |
+| "Delete note" / "删除笔记" | `obsidian delete path="..."` | `Bash('obsidian delete path="file.md"')` |
+| "Search notes" / "搜索笔记" | `obsidian search query="..."` | `Bash('obsidian search query="keyword"')` |
+| "List files" / "列出文件" | `obsidian files folder="..."` | `Bash('obsidian files folder="InBox"')` |
+| "Read property" / "读取属性" | `obsidian property:read name="..." file="..."` | `Bash('obsidian property:read name="tags" file="file.md"')` |
+| "Set property" / "设置属性" | `obsidian property:set name="..." value="..."` | `Bash('obsidian property:set name="tags" value="[\"a\",\"b\"]"')` |
+| "List tasks" / "列出任务" | `obsidian tasks todo` | `Bash('obsidian tasks todo')` |
+| "Toggle task" / "切换任务" | `obsidian task ref="..." toggle` | `Bash('obsidian task ref="file.md:5" toggle')` |
+| "Daily note" / "日常笔记" | `obsidian daily` | `Bash('obsidian daily')` |
+| "Read template" / "读取模板" | `obsidian template:read name="..."` | `Bash('obsidian template:read name="Meeting"')` |
+| "Install plugin" / "安装插件" | `obsidian plugin:install id=...` | `Bash('obsidian plugin:install id=obsidian-git')` |
+| "Enable plugin" / "启用插件" | `obsidian plugin:enable id="..."` | `Bash('obsidian plugin:enable id="obsidian-git"')` |
 
 ## Important Notes
 
