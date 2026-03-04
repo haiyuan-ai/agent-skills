@@ -1,93 +1,131 @@
 ---
 name: modelscope-zimage-generator
-description: "Generate images using ModelScope Z-Image models (Z-Image-Turbo, Z-Image, Z-Image-Edit). Use when user asks to generate images, create artwork, or requests image generation functionality. Supports async generation with polling and optional LoRA configurations. IMPORTANT - Model Selection Rule: If the user explicitly mentions \"Z-Image-Turbo\" in their prompt, use \"Tongyi-MAI/Z-Image-Turbo\"; if they explicitly mention \"Z-Image\" (without Turbo), use \"Tongyi-MAI/Z-Image\"; otherwise, use the default \"Tongyi-MAI/Z-Image-Turbo\"."
+description: |
+  Generate images using ModelScope Z-Image series models (Z-Image-Turbo, Z-Image, Z-Image-Edit).
+  Use when user asks to generate images, create artwork, make cover images, or requests image generation.
+  Supports async generation with polling, optional LoRA configurations, and reference images for editing.
 ---
 
-# ModelScope Z-Image Generator
+# ModelScope Z-Image Generator Skill
 
-Generate images using ModelScope's Z-Image series models.
+Generate images using ModelScope's Z-Image series models with async polling flow.
 
-## IMPORTANT: Response Format
+## When to Use This Skill
 
-After generating an image, you MUST:
-1. Use the Python script to generate the image
-2. Respond with ONLY a simple text message like: "Image saved to: /path/to/output.jpg"
-3. DO NOT include the image URL in your response
-4. DO NOT try to display or reference the image URL - this will cause errors with non-multimodal models
+| 场景 | 中文表达示例 | English Examples |
+|------|------------|-----------------|
+| **生成图片** | "生成一张图片"、"画一只猫"、"创建封面图" | "generate an image", "create a picture", "make a cover" |
+| **艺术创作** | "画一幅画"、"创作艺术品" | "create artwork", "paint a picture" |
+| **图片编辑** | "修改这张图"、"添加一个元素" | "edit this image", "add something to the picture" |
+| **批量生成** | "多生成几张"、"并行生成" | "generate multiple", "parallel generation" |
 
-The user can view the generated image at the file path you provide.
+## Core Workflow
+
+### 1. 解析用户请求
+
+确定生成需求：
+- 文本生成图片：文生图
+- 图片编辑：图生图（需要参考图）
+- LoRA 定制：指定风格模型
+- 批量生成：多张图片
+
+### 2. 选择模型
+
+根据用户指定选择模型：
+- 用户明确说 "Z-Image-Turbo" → `Tongyi-MAI/Z-Image-Turbo`
+- 用户明确说 "Z-Image" → `Tongyi-MAI/Z-Image`
+- 默认 → `Tongyi-MAI/Z-Image-Turbo`
+
+### 3. 构建并执行生成脚本
+
+```bash
+cd /Users/ningoo/.claude/skills/modelscope-zimage-generator/scripts
+python generate_image.py "prompt" output.jpg
+```
+
+### 4. 返回结果
+
+告知用户生成结果：
+- 成功：返回文件路径 "Image saved to: /path/to/output.jpg"
+- 失败：解释错误原因
 
 ## Prerequisites
 
-Get your ModelScope API key from: https://modelscope.cn/my/myaccesstoken
+执行前确认：
+1. **ModelScope API Key** - 从 https://modelscope.cn/my/myaccesstoken 获取
+2. **Python 环境** - 需要 `requests` 和 `PIL` 库
+3. **脚本路径正确** - 确保 `generate_image.py` 存在
 
-The script will automatically prompt for your API key the first time you use it and offer to save it for future use.
+## Quick Command Mapping
 
-**Optional: Manual Configuration**
+| User Request | Command |
+|-------------|---------|
+| "Generate image" | `python generate_image.py "prompt" output.jpg` |
+| "Use Z-Image" | `python generate_image.py "prompt" --model "Tongyi-MAI/Z-Image"` |
+| "With LoRA" | `python generate_image.py "prompt" --lora "lora-id"` |
+| "Edit image" | `python generate_image.py "prompt" --ref "input.jpg" output.jpg` |
 
-You can also manually configure the API key:
+## Common Workflows
 
-**Config file:**
+### Text-to-Image
+
 ```bash
+python generate_image.py "A golden cat in sunset" golden_cat.jpg
+```
+
+### Specify Model
+
+```bash
+python generate_image.py "A cat" output.jpg --model "Tongyi-MAI/Z-Image"
+```
+
+### With LoRA
+
+```bash
+# Single LoRA
+python generate_image.py "A cat" output.jpg --lora "liuhaotian/llava-lora"
+
+# Multiple LoRAs (weights sum to 1.0)
+python generate_image.py "A cat" output.jpg --loras '{"lora1": 0.6, "lora2": 0.4}'
+```
+
+### Batch Generation
+
+```bash
+# Generate multiple images in parallel
+python generate_image.py "A cat" cat1.jpg &
+python generate_image.py "A dog" dog1.jpg &
+wait
+```
+
+## Resources
+
+详细参考：
+- `references/api-reference.md` - API 完整参数
+- `references/lora-config.md` - LoRA 配置指南
+- `references/troubleshooting.md` - 故障排查
+
+## Troubleshooting
+
+### API Key Not Found
+
+```bash
+# Option 1: Environment variable
+export MODELSCOPE_API_KEY="ms-your-key"
+
+# Option 2: Config file
 mkdir -p ~/.config/modelscope
 cat > ~/.config/modelscope/config.json << EOF
-{
-  "api_key": "ms-your-api-key-here"
-}
+{"api_key": "ms-your-key"}
 EOF
 ```
 
-**Environment variable:**
-```bash
-export MODELSCOPE_API_KEY="ms-your-api-key-here"
-```
+### Task Timeout
 
-## Quick Start
+- 默认超时 5 分钟（60 次轮询）
+- 增加轮询次数或检查任务状态
 
-Use the Python script to generate images:
+### LoRA Not Working
 
-```bash
-cd /Users/ningoo/.claude/skills/modelscope-image-generator/scripts
-python generate_image.py "A golden cat" output.jpg
-```
-
-## Models
-
-Available Z-Image models:
-
-- `Tongyi-MAI/Z-Image-Turbo` (default, fast generation)
-- `Tongyi-MAI/Z-Image` (balanced quality and speed)
-- `Tongyi-MAI/Z-Image-Edit` (image editing)
-
-### Model Selection Rule
-
-- If the user explicitly mentions "Z-Image-Turbo", use `Tongyi-MAI/Z-Image-Turbo`
-- If the user explicitly mentions "Z-Image" (without Turbo), use `Tongyi-MAI/Z-Image`
-- Otherwise, use the default `Tongyi-MAI/Z-Image-Turbo`
-
-Specify a different model using `--model`:
-```bash
-python generate_image.py "A golden cat" output.jpg --model "Tongyi-MAI/Z-Image-Turbo"
-```
-
-## LoRA Support
-
-Single LoRA:
-
-```python
-"loras": "<lora-repo-id>"
-```
-
-Multiple LoRAs (weights must sum to 1.0):
-
-```python
-"loras": {"<lora-id1>": 0.6, "<lora-id2>": 0.4}
-```
-
-## API Flow
-
-1. Submit generation request with `X-ModelScope-Async-Mode: true`
-2. Receive `task_id` in response
-3. Poll `/v1/tasks/{task_id}` with `X-ModelScope-Task-Type: image_generation`
-4. Wait for status `SUCCEED` or `FAILED`
-5. Download image from `output_images[0]` URL
+- 检查 LoRA ID 是否正确
+- 确认 LoRA 权重和为 1.0

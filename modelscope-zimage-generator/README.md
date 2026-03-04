@@ -1,49 +1,42 @@
 # ModelScope Z-Image Generator Skill
 
-一个用于 [Claude Code](https://claude.ai/claude-code) 等 Coding Agent 的 Skill，使用 ModelScope 免费的 [Z-Image](https://modelscope.cn/models/Tongyi-MAI/Z-Image/summary) 系列模型生成图片。
+一个用于 [Claude Code](https://claude.ai/claude-code) 等 Coding Agent 的 Skill，使用 ModelScope [Z-Image](https://modelscope.cn/models/Tongyi-MAI/Z-Image/summary) 系列模型生成图片。
 
 ## 功能特性
 
-- 支持多个 Z-Image 模型（Turbo、Edit），默认使用 Turbo 快速生成
+- 支持多个 Z-Image 模型（Turbo、标准版、Edit）
 - 异步生成 + 轮询机制
-- 支持多个 LoRA 配置
-- 首次使用自动引导配置 API Key
-- 安全的 API Key 输入（隐藏显示）
-- 自动保存 API Key 到配置文件（权限 0o600）
+- 支持 LoRA 配置（单个/多个）
+- 自动引导配置 API Key
+- 安全的 API Key 存储（权限 0o600）
 
 ## 支持的模型
 
 | 模型 | 说明 |
-|--------|------|
+|------|------|
 | `Tongyi-MAI/Z-Image-Turbo` | 默认，快速生成 |
 | `Tongyi-MAI/Z-Image` | 平衡质量和速度 |
 | `Tongyi-MAI/Z-Image-Edit` | 图片编辑 |
 
 ### 模型选择规则
 
-- 如果用户明确提到 "Z-Image"，使用 `Tongyi-MAI/Z-Image`
-- 如果用户明确提到 "Z-Image-Turbo"，使用 `Tongyi-MAI/Z-Image-Turbo`
-- 否则使用默认 `Tongyi-MAI/Z-Image-Turbo`
+- 用户明确说 "Z-Image-Turbo" → `Tongyi-MAI/Z-Image-Turbo`
+- 用户明确说 "Z-Image" → `Tongyi-MAI/Z-Image`
+- 默认 → `Tongyi-MAI/Z-Image-Turbo`
 
 ## 安装
 
-### 方法一：从 npm 包安装（推荐）
+### 从 npm 包安装（推荐）
 
 ```bash
 npx skills add haiyuan-ai/agent-skills --skill modelscope-zimage-generator
 ```
 
-### 方法二：手动安装
-
-1. 下载 `modelscope-zimage-generator` 文件
-2. 复制到 Claude Code skills 目录：
+### 手动安装
 
 ```bash
-# macOS/Linux
-cp modelscope-zimage-generator ~/.claude/skills/
-
-# Windows
-copy modelscope-zimage-generator %USERPROFILE%\.claude\skills\
+# 克隆或下载仓库
+cp -r modelscope-zimage-generator ~/.claude/skills/
 ```
 
 ## 配置
@@ -54,79 +47,113 @@ copy modelscope-zimage-generator %USERPROFILE%\.claude\skills\
 
 ### 首次使用
 
-首次使用技能时，会自动提示你输入 API Key：
+首次使用时会自动提示输入 API Key，并可选择保存到配置文件。
 
-```
-ModelScope API key not found.
-Get your API key from: https://modelscope.cn/my/myaccesstoken
-
-Enter your ModelScope API key (input will be hidden):
-```
-
-输入后可以选择是否保存到配置文件，下次使用无需再次输入。
-
-### 手动配置（可选）
+### 手动配置
 
 **配置文件方式：**
 ```bash
 mkdir -p ~/.config/modelscope
 cat > ~/.config/modelscope/config.json << EOF
-{
-  "api_key": "ms-your-api-key-here"
-}
+{"api_key": "ms-your-api-key"}
 EOF
+chmod 600 ~/.config/modelscope/config.json
 ```
 
 **环境变量方式：**
 ```bash
-export MODELSCOPE_API_KEY="ms-your-api-key-here"
+export MODELSCOPE_API_KEY="ms-your-api-key"
 ```
 
 ## 使用方法
 
-### 在 Claude Code/OpenCode等Coding Agnet 中使用
+### 在 Claude Code 中使用
 
-直接用自然语言描述你想要生成的图片：
-
-```
-用魔搭生成图片：一只在雪地里玩耍的金色小猫
-```
+直接用自然语言描述：
 
 ```
-生成一张赛博朋克风格的未来城市夜景图
+生成一张金色的猫的图片
+```
+
+```
+用 Z-Image 模型生成一张赛博朋克风格的城市夜景
+```
+
+```
+创建一个文章封面图，主题是 AI 科技
 ```
 
 ### 使用 Python 脚本
 
 ```bash
-# 使用默认模型 Z-Image-Turbo
+# 使用默认模型
 python generate_image.py "A golden cat" output.jpg
 
-# 指定使用 Z-Image 模型
-python generate_image.py "A golden cat" output.jpg --model "Tongyi-MAI/Z-Image"
+# 指定模型
+python generate_image.py "A cat" output.jpg --model "Tongyi-MAI/Z-Image"
+
+# 使用 LoRA
+python generate_image.py "A cat" output.jpg --lora "liuhaotian/llava-lora"
+
+# 使用多个 LoRA
+python generate_image.py "A cat" output.jpg --loras '{"lora1": 0.6, "lora2": 0.4}'
 ```
 
-### LoRA 支持
+## 命令参考
 
-单个 LoRA：
+| 用户请求 | 命令 |
+|---------|------|
+| 生成图片 | `python generate_image.py "prompt" output.jpg` |
+| 指定模型 | `python generate_image.py "prompt" --model "Tongyi-MAI/Z-Image"` |
+| 使用 LoRA | `python generate_image.py "prompt" --lora "lora-id"` |
+| 批量生成 | 并行执行多个命令 + `wait` |
 
-```python
-"loras": "<lora-repo-id>"
-```
+## 详细文档
 
-多个 LoRA（权重总和需为 1.0）：
-
-```python
-"loras": {"<lora-id1>": 0.6, "<lora-id2>": 0.4}
-```
+- [`references/api-reference.md`](references/api-reference.md) - API 完整参数
+- [`references/lora-config.md`](references/lora-config.md) - LoRA 配置指南
+- [`references/troubleshooting.md`](references/troubleshooting.md) - 故障排查
 
 ## API 工作流程
 
-1. 提交生成请求（设置 `X-ModelScope-Async-Mode: true`）
-2. 接收 `task_id`
-3. 轮询 `/v1/tasks/{task_id}`（设置 `X-ModelScope-Task-Type: image_generation`）
-4. 等待状态为 `SUCCEED` 或 `FAILED`
-5. 从 `output_images[0]` 下载图片
+```
+1. POST /v1/images/generations (X-ModelScope-Async-Mode: true)
+   → 返回 task_id
+
+2. GET /v1/tasks/{task_id} (X-ModelScope-Task-Type: image_generation)
+   → 轮询直到 SUCCEED 或 FAILED
+
+3. 下载 output_images[0] 保存为本地文件
+```
+
+## 故障排查
+
+### API Key 未找到
+
+```bash
+# 设置环境变量
+export MODELSCOPE_API_KEY="ms-your-key"
+
+# 或创建配置文件
+mkdir -p ~/.config/modelscope
+echo '{"api_key": "ms-your-key"}' > ~/.config/modelscope/config.json
+```
+
+### 模块缺失
+
+```bash
+pip install requests pillow
+```
+
+### 其他问题
+
+详见 [`references/troubleshooting.md`](references/troubleshooting.md)
+
+## 资源链接
+
+- [ModelScope 官网](https://modelscope.cn/)
+- [Z-Image 模型页面](https://modelscope.cn/models/Tongyi-MAI/Z-Image/summary)
+- [获取 API Key](https://modelscope.cn/my/myaccesstoken)
 
 ## 许可证
 
