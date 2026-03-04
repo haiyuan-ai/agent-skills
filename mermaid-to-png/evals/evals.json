@@ -1,0 +1,60 @@
+{
+  "skill_name": "mermaid-to-png",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "帮我把这篇文章里的 mermaid 图表转成图片，要商务风格",
+      "expected_output": "PNG images generated with fresh-business style applied to all diagrams",
+      "files": ["evals/files/sample-article.md"],
+      "expectations": [
+        "All mermaid diagrams are converted to PNG files",
+        "The fresh-business style is applied (white/light background, blue accents)",
+        "Output images are saved to the output directory"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Convert the flowchart in my markdown to a dark-themed image for my tech blog",
+      "expected_output": "PNG image with dark-tech style applied",
+      "files": ["evals/files/flowchart.md"],
+      "expectations": [
+        "Diagram converted to PNG format",
+        "Dark-tech style applied (dark background #1a1a2e, cyan/purple accents)",
+        "Image width is appropriate for web display"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "I need to put this sequence diagram in my WeChat article, can you make it 900px wide?",
+      "expected_output": "PNG image with 900px width optimized for WeChat Official Account",
+      "files": ["evals/files/sequence.md"],
+      "expectations": [
+        "Output image width is exactly 900px",
+        "Sequence diagram is fully visible and readable",
+        "PNG format suitable for WeChat"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Make this gantt chart look more hand-drawn and sketchy for my brainstorming session",
+      "expected_output": "PNG image with hand-drawn style applied",
+      "files": ["evals/files/gantt.md"],
+      "expectations": [
+        "Hand-drawn style applied (warm paper background, Comic Sans MS font)",
+        "Gantt chart bars and labels are visible",
+        "Sketch-like appearance achieved"
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "转换这个 mermaid 类图为 SVG 格式，我需要矢量图",
+      "expected_output": "SVG format output for scalable vector graphics",
+      "files": ["evals/files/class-diagram.md"],
+      "expectations": [
+        "Output is SVG format not PNG",
+        "Class diagram structure preserved",
+        "Vector format allows infinite scaling"
+      ]
+    }
+  ]
+}
