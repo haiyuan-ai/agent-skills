@@ -1,0 +1,85 @@
+{
+  "skill_name": "obsidian-cli",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "读取 vault 里那篇关于 AI 的笔记",
+      "expected_output": "使用 obsidian search 搜索相关笔记，然后使用 obsidian read 读取内容",
+      "expectations": [
+        "使用 Bash 工具执行 obsidian CLI 命令",
+        "先搜索再读取或直接读取指定路径",
+        "返回笔记内容给用户"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "帮我在 Writing 文件夹创建一篇新笔记，标题是 Meeting-2024-01-15",
+      "expected_output": "使用 obsidian create 命令创建笔记",
+      "expectations": [
+        "使用正确的 path 参数：path=\"Writing/Meeting-2024-01-15.md\"",
+        "使用 Bash 工具执行命令",
+        "确认创建成功"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "查看我还有哪些待办任务没完成",
+      "expected_output": "使用 obsidian tasks todo 命令列出未完成的任务",
+      "expectations": [
+        "使用正确的命令：obsidian tasks todo",
+        "返回任务列表",
+        "如有需要可显示文件路径和行号"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "给我的 Obsidian 装个 git 插件",
+      "expected_output": "使用 obsidian plugin:install 命令安装 obsidian-git 插件",
+      "expectations": [
+        "使用正确的插件 ID：obsidian-git",
+        "命令格式：obsidian plugin:install id=obsidian-git",
+        "可选：安装后启用插件"
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "整理一下我的 vault，看看有没有孤立笔记",
+      "expected_output": "使用 obsidian orphans 命令查找孤立笔记",
+      "expectations": [
+        "使用正确的命令：obsidian orphans",
+        "返回孤立笔记列表",
+        "可建议如何处理孤立笔记"
+      ]
+    },
+    {
+      "id": 6,
+      "prompt": "帮我修改 vault 里那篇文章，把第一段删除",
+      "expected_output": "先读取文件，然后使用 create --overwrite 写回修改后的内容",
+      "expectations": [
+        "先用 obsidian read 读取文件",
+        "外部处理删除第一段",
+        "用 obsidian create --overwrite 写回"
+      ]
+    },
+    {
+      "id": 7,
+      "prompt": "列出所有标签，按使用频率排序",
+      "expected_output": "使用 obsidian tags counts sort=count 命令",
+      "expectations": [
+        "使用正确的命令参数",
+        "返回标签列表及计数",
+        "按频率降序排列"
+      ]
+    },
+    {
+      "id": 8,
+      "prompt": "打开今天的 daily note，添加一个新的任务",
+      "expected_output": "使用 obsidian command 执行 daily-notes 插件命令，然后使用 obsidian append 添加任务",
+      "expectations": [
+        "先打开 daily note：obsidian command id=daily-notes:daily-notes",
+        "获取 daily note 路径后追加任务：obsidian append path=\"YYYY-MM-DD.md\" content=\"- [ ] 新任务\"",
+        "确认添加成功"
+      ]
+    }
+  ]
+}
