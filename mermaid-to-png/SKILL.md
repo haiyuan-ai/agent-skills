@@ -1,11 +1,21 @@
 ---
 name: mermaid-to-png
-description: Convert Mermaid diagrams in Markdown files to styled PNG/SVG images with built-in professional themes. Use when users need to convert Mermaid diagrams to images, apply visual styles to diagrams, or export charts for documents, blogs, and presentations. Supports 4 built-in styles (dark-tech, fresh-business, hand-drawn, gradient-modern) and custom styling.
+description: Convert Mermaid diagrams in Markdown files to styled PNG/SVG images with built-in professional themes. Use when users need to convert Mermaid diagrams to images, apply visual styles to diagrams, or export charts for documents, blogs, and presentations. Make sure to use this skill whenever the user mentions: mermaid diagrams, converting charts to images, diagram visualization, creating presentation-ready graphics, Markdown files with mermaid code blocks, or WeChat Official Account images - even if they don't explicitly say "convert to PNG". Supports 4 built-in styles (dark-tech, fresh-business, hand-drawn, gradient-modern) and custom styling.
 ---
 
 # mermaid-to-png
 
 Convert Mermaid diagrams in Markdown files to styled PNG images with professional built-in themes.
+
+## When to Use This Skill
+
+Trigger this skill when the user:
+- Mentions converting mermaid diagrams to images
+- Asks to export charts from Markdown files
+- Needs presentation-ready diagram images
+- References WeChat Official Account image requirements (900px width)
+- Says things like "make this diagram look better" or "add styles to this chart"
+- Has Markdown files with ```mermaid``` code blocks that need visual polish
 
 ## Auto-Execution
 
@@ -102,6 +112,12 @@ Best for: Product showcases, marketing, modern apps
 - Modern display fonts (SF Pro)
 - Eye-catching, contemporary design
 
+## Resources
+
+This skill includes:
+- `scripts/convert.py` - Main conversion script with batch processing
+- `scripts/styles.py` - Style theme definitions and injection logic
+
 ## Prerequisites
 
 Install mermaid-cli:
@@ -110,37 +126,49 @@ Install mermaid-cli:
 npm install -g @mermaid-js/mermaid-cli
 ```
 
-## Arguments
+## Troubleshooting
+
+### mermaid-cli not found
+```
+Error: mermaid-cli not found
+Install with: npm install -g @mermaid-js/mermaid-cli
+```
+
+### Conversion timed out
+- The diagram may be too complex - try reducing diagram size
+- Check if Puppeteer (used by mermaid-cli) is properly installed
+- Try increasing the timeout or simplifying the diagram syntax
+
+### Style not applied correctly
+- Ensure the diagram type matches the style configuration
+- Some diagram types (gantt, sequence) have specific style requirements
+- Check that the mermaid syntax is valid
+
+## Arguments Reference
 
 | Argument | Description | Default |
 |----------|-------------|---------|
-| `input` | Input Markdown file path | Required |
+| `input` | Input markdown file path | Required |
 | `--output-dir` | Output directory for images | `./output` |
-| `--style` | Theme style (dark-tech, fresh-business, hand-drawn, gradient-modern) | `none` |
+| `--style` | Theme style | `none` |
 | `--width` | Image width in pixels | `1200` |
 | `--background` | Background color | `white` |
 | `--format` | Output format (png/svg) | `png` |
 | `--replace` | Replace code blocks with images | `false` |
-| `--chart-type` | Optimize for chart type (flowchart/sequence/gantt/class/state) | `auto` |
+| `--chart-type` | Optimize for chart type | `auto` |
+
+Available styles: `dark-tech`, `fresh-business`, `hand-drawn`, `gradient-modern`
 
 ## Output
 
 The skill generates:
-- PNG/SVG images for each Mermaid diagram found
-- Optionally a converted Markdown file with image references
+- PNG/SVG images for each Mermaid diagram found (saved to `output/` or specified directory)
+- Optionally a converted Markdown file with image references (if `--replace` used)
 
 Example output structure:
 ```
 output/
 ├── diagram_1_a3f7d2e1.png
 ├── diagram_2_b8c9a4f3.png
-└── article_converted.md  (if --replace used)
+└── article_converted.md
 ```
-
-## Triggers
-
-- `mermaid-to-png`
-- `convert mermaid`
-- `mermaid to png`
-- `转换 mermaid`
-- `生成图表图片`
