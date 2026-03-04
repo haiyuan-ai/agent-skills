@@ -1,0 +1,65 @@
+{
+  "skill_name": "modelscope-zimage-generator",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "生成一张金色的猫的图片",
+      "expected_output": "使用 generate_image.py 脚本生成图片",
+      "expectations": [
+        "使用默认模型 Tongyi-MAI/Z-Image-Turbo",
+        "正确传递 prompt 参数",
+        "告知用户输出文件路径"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "用 Z-Image 模型生成一张风景图",
+      "expected_output": "使用 Tongyi-MAI/Z-Image 模型生成图片",
+      "expectations": [
+        "识别用户明确指定 Z-Image 模型",
+        "使用 --model 参数指定模型",
+        "正确执行生成命令"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "创建一个文章封面图，主题是 AI 科技",
+      "expected_output": "生成 AI 科技主题的封面图片",
+      "expectations": [
+        "理解"封面图"需求",
+        "构建合适的英文 prompt",
+        "生成图片并返回路径"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "用 LoRA 生成一张动漫风格的图片",
+      "expected_output": "使用 LoRA 配置生成动漫风格图片",
+      "expectations": [
+        "添加 --lora 参数",
+        "使用合适的动漫风格 LoRA ID",
+        "正确配置 LoRA"
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "帮我并行生成 3 张图片",
+      "expected_output": "使用后台执行方式并行生成多张图片",
+      "expectations": [
+        "使用 & 后台执行多个命令",
+        "使用 wait 等待所有任务完成",
+        "告知用户所有输出路径"
+      ]
+    },
+    {
+      "id": 6,
+      "prompt": "我想要更高图片质量，用哪个模型好？",
+      "expected_output": "推荐 Tongyi-MAI/Z-Image 模型（质量优先）",
+      "expectations": [
+        "解释 Turbo 和标准模型的区别",
+        "根据需求推荐合适模型",
+        "提供使用建议"
+      ]
+    }
+  ]
+}
