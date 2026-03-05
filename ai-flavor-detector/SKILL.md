@@ -1,6 +1,11 @@
 ---
 name: ai-flavor-detector
-description: 检测文本的 AI 生成特征并去 AI 化。触发词：检查 AI 味/检测 AI 味/分析 AI 味/AI 味道/AI 味重/去 AI 味/改得像人写的/是否 AI 生成/朱雀检测/人味程度。Make sure to use this skill whenever the user: asks if text sounds AI-generated, wants to humanize content, mentions "去 AI 化"or "AI 味", asks about writing authenticity, wants to bypass AI detectors (如朱雀), or needs to make text sound more natural and personal.
+description: >-
+  检测文本的 AI 生成特征并去 AI 化。触发词：检查 AI 味/检测 AI 味/分析 AI 味/AI 味道/AI
+  味重/去 AI 味/改得像人写的/是否 AI 生成/朱雀检测/人味程度。Make sure to use this skill
+  whenever the user: asks if text sounds AI-generated, wants to humanize content,
+  mentions "去 AI 化" or "AI 味", asks about writing authenticity, wants to bypass AI
+  detectors (如朱雀), or needs to make text sound more natural and personal.
 ---
 
 # AI Flavor Detector
