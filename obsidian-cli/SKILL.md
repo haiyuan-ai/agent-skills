@@ -3,9 +3,21 @@ name: obsidian-cli
 description: |
   Operate Obsidian Vault via CLI for note management, file operations, and plugin control.
   Use when user needs to read/create/edit/delete notes, manage tasks/todos/tags/properties,
-  search vault, organize files, work with daily notes/templates, view backlinks, or manage plugins/themes.
-  Make sure to use this skill whenever the user mentions: vault operations, Obsidian notes, markdown files,
-  "帮我改下 vault 里那篇文章", "读取 vault", "整理笔记", or any Obsidian CLI commands - even if they don't explicitly say "obsidian-cli".
+  search vault, organize files, work with daily notes/templates, view backlinks, or manage Obsidian plugins/themes.
+
+  IMPORTANT DISTINCTION - Only use this skill for OBSIDIAN-specific operations:
+  - Obsidian vault notes, markdown files, wikilinks
+  - Obsidian daily notes, templates, graph view
+  - Obsidian third-party plugins and themes
+  - Commands starting with "obsidian "
+
+  DO NOT use this skill for:
+  - Claude Code plugins, MCP servers, or skills
+  - General "plugin" mentions without Obsidian context
+  - Other note-taking apps (Notion, Logseq, etc.)
+
+  Trigger examples: "帮我改下 vault 里那篇文章", "读取 vault", "整理笔记",
+  "obsidian plugin install", "my Obsidian notes".
 ---
 
 # Obsidian CLI Skill
@@ -26,7 +38,7 @@ Trigger this skill when the user:
 | **整理/管理** | "整理我的 vault"、"管理笔记库" | "organize my notes", "manage my vault", "cleanup files" |
 | **搜索/查找** | "找找关于 AI 的笔记"、"搜索 vault" | "find notes about XX", "search my vault", "lookup" |
 | **任务/属性** | "查看待办任务"、"设置标签"、"添加属性" | "my tasks", "set tags", "add property" |
-| **插件/主题** | "装个插件"、"换个主题" | "install plugin", "enable theme" |
+| **Obsidian 插件/主题** | "Obsidian 插件"、"obsidian 主题"、"vault 的插件" | "obsidian plugin", "enable obsidian theme", "install obsidian plugin" |
 
 ## Core Workflow
 
