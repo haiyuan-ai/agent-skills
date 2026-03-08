@@ -1,14 +1,14 @@
 ---
-name: ai-flavor-detector
+name: ai-vibe-detector
 description: >-
   检测文本的 AI 生成特征并去 AI 化。触发词：检查 AI 味/检测 AI 味/分析 AI 味/AI 味道/AI
-  味重/去 AI 味/改得像人写的/是否 AI 生成/朱雀检测/人味程度。Make sure to use this skill
+  味重/去 AI 味/改得像人写的/是否 AI 生成/朱雀检测。Make sure to use this skill
   whenever the user: asks if text sounds AI-generated, wants to humanize content,
-  mentions "去 AI 化" or "AI 味", asks about writing authenticity, wants to bypass AI
-  detectors (如朱雀), or needs to make text sound more natural and personal.
+  asks about writing authenticity, wants to bypass AI detectors (如朱雀), 
+  or needs to make text sound more natural and personal.
 ---
 
-# AI Flavor Detector
+# AI Vibe Detector
 
 深度分析文本的 AI 生成特征，从多个维度评估文本的"人味"程度。
 
@@ -73,7 +73,7 @@ AI 味评分：X/10
 - **句子复杂度**：AI 句子结构往往过于工整
 
 ### 2. 词汇特征分析
-- **连接词频率**：检测"然而"、"此外"、"值得注意的是"、"总而言之"、"与此同时"
+- **连接词频率**：检测"然而"、"此外"、"值得注意的是"、"总而言之"、"与此同时"、"不是...而是..."
 - **量化词汇**：AI 喜欢"大大"、"显著"、"广泛"、"全面"
 - **AI 特有词汇**："赋能"、"抓手"、"闭环"、"赛道"、"矩阵"、"底层逻辑"
 - **禁用词检测**：小红书禁用词（绝绝子、yyds、无敌、巨好用）
