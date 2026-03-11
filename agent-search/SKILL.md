@@ -1,7 +1,7 @@
 ---
 name: agent-search
 description: |
-  智能 Agent 搜索工具，为支持 SKILL.md 的 Agent 提供深度、结构化的联网搜索能力。
+  智能 Agent 搜索工具，提供深度、结构化的联网搜索能力。
 
   **自动触发条件:**
   - 用户明确要求搜索互联网信息: "搜索", "查一下", "帮我搜", "网上查查", "search for", "look up"
