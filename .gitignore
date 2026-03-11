@@ -4,3 +4,7 @@
 .env
 .env.*
 agent-search/.env
+
+# Python cache files
+__pycache__/
+*.pyc
