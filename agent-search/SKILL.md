@@ -1,13 +1,13 @@
 ---
 name: agent-search
 description: |
-  **智能搜索工具 - 用户可能需要外部信息时立即使用！**
+  **Intelligent search tool - USE IMMEDIATELY when user needs external info!**
 
-  **触发场景：** 搜索、查找、查询类动词("搜"/"查"/"search"/"look up")；询问实时信息("最新"/"进展"/"趋势")；调研对比("调研"/"研究"/"对比")；具体专有名词(人名/公司名/产品名)
+  **Trigger:** search verbs ("search"/"look up"/"查"/"搜"/"google"), real-time queries ("latest"/"news"/"更新"/"进展"), research/comparison ("调研"/"对比"/"vs"), proper nouns (names/companies/products)
 
-  **不要触发：** 纯本地操作(git/重构)；已指定其他搜索工具；通用知识问答
+  **Skip:** local operations (git/refactoring); specific tool already mentioned; general knowledge
 
-  **核心功能：** 多源搜索(Tavily+Brave+Exa)，支持 `--json` 输出
+  **Features:** Multi-source search (Tavily+Brave+Exa), JSON output via `--json`
 
 version: 0.6.0
 author: Haiyuan AI
