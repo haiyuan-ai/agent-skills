@@ -108,7 +108,8 @@ class SmartSimilarity:
     def extract_keywords(self, text: str) -> List[str]:
         """提取关键词（去除停用词）"""
         tokens = self.tokenize(text)
-        return [t for t in tokens if len(t) > 1]
+        # 保留长度>1的词，但中文字符（长度=1）也保留
+        return [t for t in tokens if len(t) > 1 or '\u4e00' <= t <= '\u9fff']
 
     def expand_synonyms(self, keywords: List[str]) -> Set[str]:
         """扩展同义词"""
