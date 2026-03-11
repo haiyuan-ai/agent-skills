@@ -36,9 +36,9 @@ author: Haiyuan AI
 
 ## 搜索模式
 
-- `quick`: 不扩展查询，不深度提取，最快，缓存 2 小时
-- `standard`: 扩展查询，按需使用 Jina Reader，缓存 1 小时
-- `deep`: 扩展查询，所有结果都用 Jina Reader，缓存 30 分钟
+- `quick`: 不扩展查询，不深度提取，最快，缓存最多 12 小时
+- `standard`: 扩展查询，不使用 Jina Reader，按意图缓存 1 小时～3 天
+- `deep`: 扩展查询，所有结果都用 Jina Reader 提取全文，按意图缓存 1 小时～3 天
 
 默认用 `standard`。
 

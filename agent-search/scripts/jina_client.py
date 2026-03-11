@@ -105,7 +105,7 @@ class JinaClient:
     async def extract_with_timeout(
         self,
         url: str,
-        timeout: float = 5.0
+        timeout: float = 3.0
     ) -> Optional[Dict]:
         """带超时的提取"""
         try:

@@ -565,11 +565,13 @@ class AgentSearch:
         # 7. 限制返回数量
         final_results = ranked_results[:self.config.max_results]
 
-        # 8. 根据 depth 配置决定是否使用 Jina Reader
+        # 8. 仅 deep 模式使用 Jina Reader 深度提取
         if self.config.depth == "deep":
             final_results = await self._enrich_with_jina(final_results, intent=intent)
-        elif self.config.depth == "standard":
-            final_results = await self._conditional_enrich(final_results, intent=intent)
+        else:
+            for result in final_results:
+                result["content"] = result.get("text", "")
+                result["content_source"] = "original"
 
         # 9. 构建返回结构
         return {
@@ -681,6 +683,10 @@ async def search(
     Returns:
         结构化搜索结果
     """
+    # quick 模式强制不扩展查询，保证单次请求速度
+    if depth == "quick":
+        expand = False
+
     cache_scope = f"strategy={STRATEGY_VERSION}|depth={depth}|expand={int(expand)}|max_results={max_results}"
 
     # 读取配置
@@ -747,14 +753,19 @@ async def search(
     searcher = AgentSearch(search_config)
     result = await searcher.search(query, expand=expand)
 
-    # 保存到缓存
+    # 保存到缓存（按意图决定基础 TTL，news 例外保持短周期）
     if use_cache and result:
-        ttl_map = {
-            "quick": 7200,     # 2 小时
-            "standard": 3600,  # 1 小时
-            "deep": 1800,      # 30 分钟
+        intent_ttl_map = {
+            "news":            3600,    # 1 小时（时效性强）
+            "general":         86400,   # 1 天
+            "troubleshooting": 259200,  # 3 天（解决方案稳定）
+            "comparison":      259200,  # 3 天（框架对比稳定）
+            "release":         86400,   # 1 天（版本偶尔更新）
         }
-        ttl = ttl_map.get(depth, 3600)
+        ttl = intent_ttl_map.get(intent, 86400)
+        # deep 模式内容最全，不缩短；quick 模式适当缩短（快速确认事实，不需要长期缓存）
+        if depth == "quick":
+            ttl = min(ttl, 43200)  # quick 最多缓存 12 小时
         cache.set(query, result, ttl=ttl, scope=cache_scope)
 
     return result
