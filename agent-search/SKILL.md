@@ -63,7 +63,7 @@ author: Haiyuan AI
 | **版本/文档** | 版本、发布说明、changelog | 加文档关键词 |
 | **通用** | 默认 | 标准扩展策略 |
 
-意图识别基于关键词匹配，按 news → troubleshooting → comparison → release → general 优先级判定。
+意图识别基于关键词匹配，按 release → troubleshooting → news → comparison → general 优先级判定。
 
 ## 面向 Agent 的使用约定
 

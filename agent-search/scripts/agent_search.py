@@ -133,14 +133,14 @@ def is_comparison_query(query: str) -> bool:
 
 def detect_query_intent(query: str) -> Literal["news", "troubleshooting", "comparison", "release", "general"]:
     """识别查询主意图，用于扩展和排序"""
-    if is_news_query(query):
-        return "news"
-    if is_troubleshooting_query(query):
-        return "troubleshooting"
-    if is_comparison_query(query):
-        return "comparison"
     if is_release_query(query):
         return "release"
+    if is_troubleshooting_query(query):
+        return "troubleshooting"
+    if is_news_query(query):
+        return "news"
+    if is_comparison_query(query):
+        return "comparison"
     return "general"
 
 
