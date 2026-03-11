@@ -114,7 +114,7 @@ result = await searcher.search("Python 异步编程")
 
 ## 缓存
 
-- 存储位置: `~/.claude/haiyuan-ai/agent_search_cache/`
+- 存储位置: `~/.agents/haiyuan-ai/agent_search_cache/`
 - 匹配层级: 精确 -> 相似 -> 向量
 - 默认阈值: 相似匹配 `0.6`，向量匹配 `0.75`
 - TTL: `quick=2h`，`standard=1h`，`deep=30m`

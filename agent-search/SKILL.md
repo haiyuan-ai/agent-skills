@@ -29,10 +29,10 @@ author: Haiyuan AI
 优先执行 CLI，并要求输出 JSON：
 
 ```bash
-~/.claude/skills/agent-search/scripts/agent-search-cli "用户查询内容" --json
+~/.agents/skills/agent-search/scripts/agent-search-cli "用户查询内容" --json
 ```
 
-如果当前运行环境并不把 skill 安装在 `~/.claude/skills/` 下，请改为当前 skill 实际路径后再执行。
+如果当前运行环境把 skill 安装在其他路径（如 `~/.claude/skills/`），请改为当前 skill 实际路径后再执行。
 
 ## 搜索模式
 

@@ -115,7 +115,7 @@ class SmartCache:
 
     def __init__(self, cache_dir: Optional[str] = None):
         if cache_dir is None:
-            cache_dir = os.path.expanduser("~/.claude/haiyuan-ai/agent_search_cache")
+            cache_dir = os.path.expanduser("~/.agents/haiyuan-ai/agent_search_cache")
 
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
