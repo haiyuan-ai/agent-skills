@@ -15,76 +15,76 @@ author: Haiyuan AI
 
 # Agent Search
 
-## 执行方式
+## Execution
 
-优先执行 CLI，并要求输出 JSON：
+Execute via CLI with JSON output:
 
 ```bash
-~/.agents/skills/agent-search/scripts/agent-search-cli "用户查询内容" --json
+~/.agents/skills/agent-search/scripts/agent-search-cli "query" --json
 ```
 
-如果当前运行环境把 skill 安装在其他路径（如 `~/.claude/skills/`），请改为当前 skill 实际路径后再执行。
+If installed at a different path (e.g., `~/.claude/skills/`), use the actual path.
 
-## 搜索模式
+## Search Modes
 
-- `quick`: 不扩展查询，不深度提取，最快，缓存最多 12 小时
-- `standard`: 扩展查询，不使用 Jina Reader，按意图缓存 1 小时～3 天
-- `deep`: 扩展查询，所有结果都用 Jina Reader 提取全文，按意图缓存 1 小时～3 天
+- `quick`: No query expansion, no deep extraction. Fastest. Cache up to 12h.
+- `standard`: Query expansion, no Jina Reader. Cache 1h-3d by intent.
+- `deep`: Query expansion, Jina Reader for full text. Cache 1h-3d by intent.
 
-默认用 `standard`。
+Default: `standard`.
 
-这些情况建议用 `deep`：
-- 用户明确要求“深度调研”“全面梳理”“尽量全”
-- 用户在比较多个方案，且需要更多上下文
-- 用户问的是近期动态，且结果质量明显依赖正文提取
+Use `deep` when:
+- User asks for "deep research", "comprehensive", "as much as possible"
+- Comparing multiple options needing more context
+- Recent events where result quality depends on full text
 
-这些情况建议用 `quick`：
-- 用户只是要几个链接或快速确认事实
-- 用户已经给了很具体的 query，不需要扩展
+Use `quick` when:
+- User just wants links or quick fact check
+- User already gave specific query, no expansion needed
 
-## 查询意图识别
+## Query Intent Detection
 
-自动检测查询意图，影响扩展策略和缓存时长：
+Auto-detects query intent, affects expansion strategy and cache TTL:
 
-| 意图 | 触发关键词 | 策略 |
-|------|-----------|------|
-| **新闻** | 最新消息、动态、局势、latest news | 扩展少，缓存短（1小时） |
-| **故障排查** | 报错、错误、无法、crash、error | 加解决方案关键词，缓存长（3天） |
-| **对比** | vs、对比、区别、哪个好 | 加优缺点/评测关键词 |
-| **版本/文档** | 版本、发布说明、changelog | 加文档关键词 |
-| **通用** | 默认 | 标准扩展策略 |
+| Intent | Keywords | Strategy |
+|--------|----------|----------|
+| **News** | latest news, updates, "最新消息", "动态" | Less expansion, short cache (1h) |
+| **Troubleshooting** | error, crash, "报错", "错误" | Add solution keywords, long cache (3d) |
+| **Comparison** | vs, compare, "对比", "区别" | Add pros/cons keywords |
+| **Release/Docs** | version, changelog, "版本", "发布说明" | Add docs keywords |
+| **General** | default | Standard expansion |
 
-意图识别基于关键词匹配，按 release → troubleshooting → news → comparison → general 优先级判定。
+Intent priority: release → troubleshooting → news → comparison → general
 
-## 面向 Agent 的使用约定
+## Agent Usage Guidelines
 
-- 默认读取 `--json` 输出，不要解析人类可读模式的格式化文本
-- 如果用户只要简单事实，优先 `quick` 或 `standard`
-- 如果用户指定不要联网，不要触发本 skill
-- 如果用户明确要求某个搜索源，优先走对应原生工具，不强制走本 skill
+- Read `--json` output by default; don't parse human-readable text
+- Use `quick` or `standard` for simple facts
+- Don't trigger if user explicitly disables web search
+- Use native tool if user explicitly specifies a search source
 
-## 输出约束（防幻觉）
+## Output Constraints (Anti-Hallucination)
 
-**严格遵循以下规则，禁止编造信息：**
+**Strict rules - never fabricate information:**
 
-1. **只基于搜索结果回答**
-   - 禁止添加搜索结果中未出现的信息
-   - 禁止编造公司名、产品名、版本号、人名、数据等具体信息
-   - 如果不确定，必须明确说明"根据搜索结果，未找到相关信息"
+1. **Answer based on search results only**
+   - Never add info not in search results
+   - Never fabricate names, products, versions, people, data
+   - If uncertain, clearly state "no relevant info found in search results"
 
-2. **事实性陈述必须有来源**
-   - 每个关键事实必须标注来源（如：根据[来源网站]）
-   - 如果搜索结果相互矛盾，列出不同说法并标注各自来源
+2. **Facts must have sources**
+   - Every key fact must cite source (e.g., from [source website])
+   - If results contradict, list different claims with sources
 
-3. **区分确定与不确定**
-   - 确定信息：直接陈述，标注来源
-   - 不确定信息：使用"根据XXX网站显示...""搜索结果中提到..."等限定语
-   - 完全未找到：明确说明"未在搜索结果中找到相关信息"
+3. **Distinguish certainty levels**
+   - Certain: state directly with source
+   - Uncertain: use "according to X...", "search results mention..."
+   - Not found: clearly state "no relevant info found"
 
-4. **禁止过度推断**
-   - 只陈述搜索结果中的事实，不做超出搜索结果的推断
-   - 例如：搜索结果是"V6.0发布于2023年4月"，不能推断"当前最新版本是V6.0"
+4. **No over-inference**
+   - State facts from results only, don't infer beyond
+   - Example: if result says "V6.0 released April 2023", don't infer "current latest is V6.0"
 
-5. **日期和版本号处理**
-   - 如果搜索结果中的版本/日期信息是旧的，如实说明信息的发布时间
-   - 例如："根据2023年4月的官方公告，最新版本为V6.0"
+5. **Dates and versions**
+   - If result shows old version/date, state the info timestamp
+   - Example: "According to April 2023 official announcement, latest version is V6.0"
