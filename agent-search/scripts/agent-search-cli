@@ -128,7 +128,7 @@ async def main():
         epilog="""
 示例:
   %(prog)s "Python 异步编程"
-  %(prog)s "Claude 3.5 新功能" --depth deep --max-results 15
+  %(prog)s "Claude 3.5 新功能" --mode deep --max-results 15
   %(prog)s "AI 编程助手" --no-expand --verbose
   %(prog)s --cache-stats
   %(prog)s --cache-clear
@@ -149,10 +149,10 @@ async def main():
     )
 
     parser.add_argument(
-        "-d", "--depth",
+        "-m", "--mode",
         choices=["quick", "standard", "deep"],
         default="standard",
-        help="搜索深度 (默认: standard)"
+        help="搜索模式 (默认: standard)"
     )
 
     parser.add_argument(
@@ -264,7 +264,7 @@ async def main():
 
     print(f"🚀 开始搜索: {args.query}", file=log_stream)
     print(
-        f"   配置: depth={args.depth}, max_results={args.max_results}, "
+        f"   配置: mode={args.mode}, max_results={args.max_results}, "
         f"expand={not args.no_expand}, cache={not args.no_cache}",
         file=log_stream
     )
@@ -278,7 +278,7 @@ async def main():
                 result = await search(
                     query=args.query,
                     max_results=args.max_results,
-                    depth=args.depth,
+                    mode=args.mode,
                     expand=not args.no_expand,
                     use_cache=not args.no_cache
                 )
@@ -286,7 +286,7 @@ async def main():
             result = await search(
                 query=args.query,
                 max_results=args.max_results,
-                depth=args.depth,
+                mode=args.mode,
                 expand=not args.no_expand,
                 use_cache=not args.no_cache
             )

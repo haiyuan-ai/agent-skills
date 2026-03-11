@@ -11,7 +11,7 @@ def load_env_file(env_path: Optional[Path] = None) -> dict:
     从 .env 文件加载环境变量
 
     Args:
-        env_path: .env 文件路径，默认为当前目录或父目录的 .env 文件
+        env_path: .env 文件路径，默认为 ~/.agents/haiyuan-ai/.env 或当前目录的 .env 文件
 
     Returns:
         加载的环境变量字典
@@ -20,9 +20,14 @@ def load_env_file(env_path: Optional[Path] = None) -> dict:
 
     # 如果未指定路径，尝试查找 .env 文件
     if env_path is None:
+        # 默认配置目录
+        default_config_dir = Path.home() / ".agents" / "haiyuan-ai"
+        default_env_path = default_config_dir / ".env"
+
         # 从当前文件位置开始向上查找
         current_dir = Path(__file__).parent.resolve()
         search_paths = [
+            default_env_path,               # ~/.agents/haiyuan-ai/.env (推荐)
             current_dir / ".env",           # scripts/.env
             current_dir.parent / ".env",    # agent-search/.env
             Path.cwd() / ".env",            # 当前工作目录/.env
@@ -101,13 +106,16 @@ def save_api_key(key_name: str, key_value: str, env_path: Optional[Path] = None)
     Args:
         key_name: API Key 名称
         key_value: API Key 值
-        env_path: .env 文件路径，默认为 agent-search 目录下的 .env
+        env_path: .env 文件路径，默认为 ~/.agents/haiyuan-ai/.env
 
     Returns:
         保存的文件路径
     """
     if env_path is None:
-        env_path = Path(__file__).parent.parent / ".env"
+        # 默认保存到 ~/.agents/haiyuan-ai/.env
+        config_dir = Path.home() / ".agents" / "haiyuan-ai"
+        config_dir.mkdir(parents=True, exist_ok=True)
+        env_path = config_dir / ".env"
 
     env_path = Path(env_path)
 

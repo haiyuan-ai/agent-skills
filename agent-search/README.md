@@ -25,14 +25,20 @@ pip install pytest
 
 ## 配置
 
-支持环境变量或项目根目录 `.env`：
+支持环境变量或配置文件 `~/.agents/haiyuan-ai/.env`：
 
 ```bash
+# 创建配置目录
+mkdir -p ~/.agents/haiyuan-ai
+
+# 编辑配置文件
+cat > ~/.agents/haiyuan-ai/.env << 'EOF'
 TAVILY_API_KEY="your-tavily-api-key"
 BRAVE_API_KEY="your-brave-api-key"
 EXA_API_KEY="your-exa-api-key"
 JINA_API_KEY="your-jina-api-key"
 GEMINI_API_KEY="your-gemini-api-key"
+EOF
 ```
 
 搜索功能只要求三者之一存在即可，但默认推荐优先配置 `TAVILY_API_KEY`：
@@ -41,7 +47,9 @@ GEMINI_API_KEY="your-gemini-api-key"
 - `BRAVE_API_KEY`
 - `EXA_API_KEY`
 
-默认搜索策略：
+配置方式（按优先级）：
+1. 环境变量
+2. `~/.agents/haiyuan-ai/.env` 配置文件（推荐，更新 skill 时不会被覆盖）
 
 - `Tavily` 作为主引擎，普通低频用户只配它也能正常使用
 - `Brave` 在已配置时作为网页 / 官方站 / 新闻类补充
@@ -76,7 +84,7 @@ Tavily 有明确的 free plan，限制为 `1000 API credits/month`。从注册�
 ./scripts/agent-search-cli "Python 异步编程" --json
 
 # 深度搜索
-./scripts/agent-search-cli "Claude 3.5 新功能" --depth deep --max-results 15
+./scripts/agent-search-cli "Claude 3.5 新功能" --mode deep --max-results 15
 
 # 不扩展查询
 ./scripts/agent-search-cli "AI 编程助手" --no-expand
@@ -92,7 +100,7 @@ import asyncio
 from scripts.agent_search import search, AgentSearch, SearchConfig
 
 async def main():
-    result = await search("Claude 3.5 Sonnet 新功能", depth="standard")
+    result = await search("Claude 3.5 Sonnet 新功能", mode="standard")
     print(result["results"][0]["title"])
 
 asyncio.run(main())
@@ -105,7 +113,7 @@ config = SearchConfig(
     tavily_api_key="...",
     jina_api_key="...",
     max_results=10,
-    depth="standard",
+    mode="standard",
 )
 
 searcher = AgentSearch(config)
@@ -118,7 +126,7 @@ result = await searcher.search("Python 异步编程")
 - 匹配层级: 精确 -> 相似 -> 向量
 - 默认阈值: 相似匹配 `0.6`，向量匹配 `0.75`
 - TTL: `quick=2h`，`standard=1h`，`deep=30m`
-- 缓存 scope 包含 `strategy version`、`depth`、`expand`、`max_results`，不同搜索模式和不同搜索策略不会互相污染
+- 缓存 scope 包含 `strategy version`、`mode`、`expand`、`max_results`，不同搜索模式和不同搜索策略不会互相污染
 
 当前代码里的搜索策略版本是 `v8`。这个版本号用于在搜索策略发生明显变化时隔离旧缓存，例如：
 

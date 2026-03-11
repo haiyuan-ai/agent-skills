@@ -39,7 +39,7 @@ class SearchConfig:
     max_results: int = 10
     brave_max_results: int = 8
     tavily_max_results: int = 8
-    depth: Literal["quick", "standard", "deep"] = "standard"
+    mode: Literal["quick", "standard", "deep"] = "standard"
     enable_brave: bool = True  # 默认仅在部分意图下作为补充
     enable_tavily: bool = True  # 默认启用 Tavily 作为主搜索引擎
 
@@ -514,7 +514,7 @@ class AgentSearch:
                 ResultMerger.deduplicate(all_results),
                 self.config.max_results,
                 intent,
-                self.config.depth,
+                self.config.mode,
                 has_exa
             ):
                 print("   ➕ 首轮结果不足，补充 Exa 语义搜索")
@@ -566,7 +566,7 @@ class AgentSearch:
         final_results = ranked_results[:self.config.max_results]
 
         # 8. 仅 deep 模式使用 Jina Reader 深度提取
-        if self.config.depth == "deep":
+        if self.config.mode == "deep":
             final_results = await self._enrich_with_jina(final_results, intent=intent)
         else:
             for result in final_results:
@@ -590,7 +590,7 @@ class AgentSearch:
         """
         print("   📖 使用 Jina Reader 深度提取内容...")
 
-        extraction_limit = get_jina_extraction_limit(intent, self.config.depth, len(results))
+        extraction_limit = get_jina_extraction_limit(intent, self.config.mode, len(results))
         urls = [r["url"] for r in results[:extraction_limit]]
 
         if not urls:
@@ -623,7 +623,7 @@ class AgentSearch:
         """
         async with JinaClient(self.config.jina_api_key) as jina:
             urls_to_extract = []
-            extraction_limit = get_jina_extraction_limit(intent, self.config.depth, len(results))
+            extraction_limit = get_jina_extraction_limit(intent, self.config.mode, len(results))
 
             for result in results:
                 should_extract, reason = jina.should_extract(result)
@@ -660,7 +660,7 @@ class AgentSearch:
 async def search(
     query: str,
     max_results: int = 10,
-    depth: Literal["quick", "standard", "deep"] = "standard",
+    mode: Literal["quick", "standard", "deep"] = "standard",
     expand: bool = True,
     use_cache: bool = True
 ) -> Dict:
@@ -676,7 +676,7 @@ async def search(
     Args:
         query: 搜索查询
         max_results: 最大返回结果数
-        depth: 内容深度 (quick/standard/deep)
+        mode: 搜索模式 (quick/standard/deep)
         expand: 是否扩展查询
         use_cache: 是否使用缓存
 
@@ -684,10 +684,10 @@ async def search(
         结构化搜索结果
     """
     # quick 模式强制不扩展查询，保证单次请求速度
-    if depth == "quick":
+    if mode == "quick":
         expand = False
 
-    cache_scope = f"strategy={STRATEGY_VERSION}|depth={depth}|expand={int(expand)}|max_results={max_results}"
+    cache_scope = f"strategy={STRATEGY_VERSION}|mode={mode}|expand={int(expand)}|max_results={max_results}"
 
     # 读取配置
     config = get_config()
@@ -747,11 +747,14 @@ async def search(
         tavily_api_key=tavily_key,
         jina_api_key=jina_key,
         max_results=max_results,
-        depth=depth
+        mode=mode
     )
 
     searcher = AgentSearch(search_config)
     result = await searcher.search(query, expand=expand)
+
+    # 获取查询意图用于缓存 TTL 计算
+    intent = detect_query_intent(query)
 
     # 保存到缓存（按意图决定基础 TTL，news 例外保持短周期）
     if use_cache and result:
@@ -764,7 +767,7 @@ async def search(
         }
         ttl = intent_ttl_map.get(intent, 86400)
         # deep 模式内容最全，不缩短；quick 模式适当缩短（快速确认事实，不需要长期缓存）
-        if depth == "quick":
+        if mode == "quick":
             ttl = min(ttl, 43200)  # quick 最多缓存 12 小时
         cache.set(query, result, ttl=ttl, scope=cache_scope)
 
