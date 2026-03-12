@@ -93,7 +93,7 @@ class TestQualityScorer:
             "text": "上一篇 2024 年 6 月 23 日",
             "published_date": "",
         }
-        assert QualityScorer.extract_embedded_date(spaced_result) == "2024-6-23"
+        assert QualityScorer.extract_embedded_date(spaced_result) == "2024-06-23"
 
         year_only_result = {
             "title": "Product update report 04 2023 edition",
@@ -101,6 +101,13 @@ class TestQualityScorer:
             "published_date": "",
         }
         assert QualityScorer.extract_embedded_date(year_only_result) == "2023-01-01"
+
+        english_date_result = {
+            "title": "Last updated March 10, 2026",
+            "text": "",
+            "published_date": "",
+        }
+        assert QualityScorer.extract_embedded_date(english_date_result) == "2026-03-10"
 
     def test_calculate_content_completeness(self):
         assert QualityScorer.calculate_content_completeness("a" * 100) == 0.3
@@ -250,6 +257,29 @@ class TestQualityScorer:
         ranked = QualityScorer.rank(results, intent="status", query="Product X 怎么样")
         assert ranked[0]["url"] == "https://vendor.example.com/updates/14"
         assert ranked[0]["quality_breakdown"]["effective_published_date"] == "2025-09-03"
+
+    def test_rank_status_promotes_newer_official_result(self):
+        results = [
+            {
+                "title": "Product X review roundup",
+                "url": "https://community.example.com/review",
+                "text": "2026-02-01 review",
+                "score": 0.86,
+                "source": "brave",
+                "published_date": "2026-02-01",
+            },
+            {
+                "title": "Product X annual update",
+                "url": "https://vendor.example.com/news/annual-update",
+                "text": "2026-03-01 official update",
+                "score": 0.74,
+                "source": "tavily",
+                "published_date": "2026-03-01",
+            },
+        ]
+
+        ranked = QualityScorer.rank(results, intent="status", query="Product X 怎么样")
+        assert ranked[0]["url"] == "https://vendor.example.com/news/annual-update"
 
     def test_rank_status_promotes_company_news_page(self):
         results = [
@@ -981,6 +1011,7 @@ class TestQueryExpansion:
         assert summary["latest_event"]["effective_published_date"] == "2025-04-16"
         assert summary["latest_product_update"]["effective_published_date"] == "2025-02-24"
         assert summary["latest_official_update"]["status_result_type"] == "company_update"
+        assert any("最近官方动态: 2026-01-22" in line for line in summary["highlights"])
 
 
 class TestClients:

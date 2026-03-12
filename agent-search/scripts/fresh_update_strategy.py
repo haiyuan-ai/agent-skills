@@ -391,6 +391,26 @@ def _serialize_status_result(result: Dict, query: str) -> Dict:
     }
 
 
+def _build_status_highlights(summary: Dict) -> List[str]:
+    highlights = []
+    label_map = [
+        ("latest_official_update", "最近官方动态"),
+        ("latest_product_update", "最近产品更新"),
+        ("latest_event", "最近活动动态"),
+        ("latest_company_update", "最近公司动态"),
+        ("latest_third_party_review", "最近第三方评价"),
+    ]
+    seen_urls = set()
+    for field, label in label_map:
+        item = summary.get(field)
+        if not item or item.get("url") in seen_urls:
+            continue
+        seen_urls.add(item.get("url"))
+        date_text = item.get("effective_published_date") or "日期未知"
+        highlights.append(f"{label}: {date_text} | {item.get('title', '')}")
+    return highlights
+
+
 def build_status_summary(results: List[Dict], query: str, as_of_date: Optional[str] = None) -> Dict:
     if as_of_date is None:
         as_of_date = datetime.now().strftime("%Y-%m-%d")
@@ -420,4 +440,5 @@ def build_status_summary(results: List[Dict], query: str, as_of_date: Optional[s
         typed_results = sorted(typed_results, key=rank_key, reverse=True)
         summary[field] = _serialize_status_result(typed_results[0], query) if typed_results else None
 
+    summary["highlights"] = _build_status_highlights(summary)
     return summary

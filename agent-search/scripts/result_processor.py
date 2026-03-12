@@ -2,6 +2,7 @@
 搜索结果融合、去重和质量评分
 """
 import re
+from datetime import datetime
 from typing import List, Dict
 from urllib.parse import urlparse
 from difflib import SequenceMatcher
@@ -154,11 +155,13 @@ class QualityScorer:
             r"(20\d{2}\s*年\s*\d{1,2}\s*月\s*\d{1,2}\s*日)",
             r"(20\d{2}年\d{1,2}月\d{1,2}日)",
             r"posted\s*@\s*(20\d{2}-\d{2}-\d{2})",
+            r"(?:posted on|published on|updated on|last updated)\s*(20\d{2}-\d{2}-\d{2})",
+            r"(?:posted on|published on|updated on|last updated)\s*(20\d{2}/\d{2}/\d{2})",
         ]
         for pattern in patterns:
             match = re.search(pattern, haystack, re.IGNORECASE)
             if match:
-                return (
+                return cls._normalize_extracted_date(
                     match.group(1)
                     .replace("/", "-")
                     .replace(" ", "")
@@ -167,11 +170,40 @@ class QualityScorer:
                     .replace("日", "")
                 )
 
+        english_month_match = re.search(
+            r"\b("
+            r"january|february|march|april|may|june|july|august|"
+            r"september|october|november|december"
+            r")\s+(\d{1,2}),\s*(20\d{2})\b",
+            haystack,
+            re.IGNORECASE,
+        )
+        if english_month_match:
+            month_name, day, year = english_month_match.groups()
+            try:
+                parsed = datetime.strptime(f"{month_name} {day} {year}", "%B %d %Y")
+                return parsed.strftime("%Y-%m-%d")
+            except ValueError:
+                pass
+
         title = result.get("title", "") or ""
         year_match = re.search(r"(20\d{2})", title)
         if year_match:
             return f"{year_match.group(1)}-01-01"
         return ""
+
+    @staticmethod
+    def _normalize_extracted_date(date_str: str) -> str:
+        for fmt in ("%Y-%m-%d", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S"):
+            try:
+                return datetime.strptime(date_str, fmt).strftime("%Y-%m-%d")
+            except ValueError:
+                continue
+        try:
+            year, month, day = date_str.split("-", 2)
+            return f"{int(year):04d}-{int(month):02d}-{int(day):02d}"
+        except (ValueError, TypeError):
+            return date_str
 
     @classmethod
     def _effective_published_date(cls, result: Dict) -> str:
@@ -570,6 +602,31 @@ class QualityScorer:
             if leading_republisher:
                 insert_at = leading_republisher[0]
                 promoted = results.pop(best_official_index)
+                results.insert(insert_at, promoted)
+
+        official_dated_indices = [
+            idx for idx, item in enumerate(results[:8])
+            if query
+            and cls._is_company_site_like(item, query)
+            and item.get("quality_breakdown", {}).get("effective_published_date")
+        ]
+        if official_dated_indices:
+            freshest_official_index = max(
+                official_dated_indices,
+                key=lambda idx: (
+                    results[idx].get("quality_breakdown", {}).get("effective_published_date", ""),
+                    results[idx].get("final_score", results[idx].get("quality_score", 0.0)),
+                ),
+            )
+            freshest_official = results[freshest_official_index]
+            top_date = results[0].get("quality_breakdown", {}).get("effective_published_date", "")
+            official_date = freshest_official.get("quality_breakdown", {}).get("effective_published_date", "")
+            top_is_non_official = query and not cls._is_company_site_like(results[0], query)
+            if freshest_official_index > 0 and official_date and (
+                top_is_non_official or (top_date and official_date > top_date) or not top_date
+            ):
+                promoted = results.pop(freshest_official_index)
+                insert_at = 0 if top_is_non_official else 1
                 results.insert(insert_at, promoted)
 
         return results

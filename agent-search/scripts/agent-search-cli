@@ -25,6 +25,13 @@ def print_results(result: dict, verbose: bool = False):
     print(f"   总计: {result['total_found']} 条 | 去重: {result['unique_count']} 条 | 返回: {result['results_returned']} 条")
     print("=" * 70)
 
+    status_summary = result.get("status_summary")
+    if status_summary:
+        print(f"📌 截至 {status_summary.get('as_of_date', 'N/A')} 的结构化摘要")
+        for line in status_summary.get("highlights", []):
+            print(f"   - {line}")
+        print("-" * 70)
+
     for item in result['results']:
         print(f"\n🏆 #{item['rank']} {item['title']}")
         print(f"   📎 {item['url']}")
