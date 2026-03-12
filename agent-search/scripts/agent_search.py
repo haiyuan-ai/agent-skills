@@ -17,15 +17,13 @@ try:
     from .exa_client import ExaClient
     from .brave_client import BraveClient
     from .tavily_client import TavilyClient
-    from .jina_client import JinaClient
+    from .content_safety import apply_content_safety
     from .fresh_update_strategy import (
         build_status_summary,
         build_status_discovery_queries,
         build_status_site_queries,
         discover_official_domains,
         expand_query,
-        get_jina_cache_ttl,
-        get_jina_extraction_limit,
         get_max_queries_for_intent,
         get_query_source_plan,
         get_tavily_options,
@@ -57,15 +55,13 @@ except ImportError:
     from exa_client import ExaClient
     from brave_client import BraveClient
     from tavily_client import TavilyClient
-    from jina_client import JinaClient
+    from content_safety import apply_content_safety
     from fresh_update_strategy import (
         build_status_summary,
         build_status_discovery_queries,
         build_status_site_queries,
         discover_official_domains,
         expand_query,
-        get_jina_cache_ttl,
-        get_jina_extraction_limit,
         get_max_queries_for_intent,
         get_query_source_plan,
         get_tavily_options,
@@ -101,7 +97,6 @@ class SearchConfig:
     exa_api_key: Optional[str] = None
     brave_api_key: Optional[str] = None
     tavily_api_key: Optional[str] = None
-    jina_api_key: Optional[str] = None
     max_results: int = 10
     brave_max_results: int = 8
     tavily_max_results: int = 8
@@ -363,8 +358,7 @@ class AgentSearch:
         unique_results = ResultMerger.deduplicate(all_results)
         print(f"   去重后: {len(unique_results)} 条")
 
-        if is_fresh_update_intent(intent) and self.config.mode != "quick":
-            unique_results = await self._refresh_fresh_update_candidates(unique_results, intent=intent)
+        unique_results = [apply_content_safety(dict(result)) for result in unique_results]
 
         # 6. 质量评分和排序
         ranked_results = QualityScorer.rank(unique_results, intent=intent, query=query)
@@ -372,13 +366,8 @@ class AgentSearch:
         # 7. 限制返回数量
         final_results = ranked_results[:self.config.max_results]
 
-        # 8. 仅 deep 模式使用 Jina Reader 深度提取
-        if self.config.mode == "deep":
-            final_results = await self._enrich_with_jina(final_results, intent=intent)
-        else:
-            for result in final_results:
-                result["content"] = result.get("text", "")
-                result["content_source"] = "original"
+        # 8. 所有模式都只返回搜索摘要的安全摘录，不加载整页正文
+        final_results = self._attach_safe_content(final_results)
 
         # 9. 构建返回结构
         response = {
@@ -395,24 +384,7 @@ class AgentSearch:
         return response
 
     async def _refresh_fresh_update_candidates(self, results: List[Dict], intent: str) -> List[Dict]:
-        """为新近官方更新类查询补抓少量候选页正文，用于提取更可靠的日期信号"""
-        urls = self._get_fresh_update_refresh_urls(results, intent=intent)
-        if not urls:
-            return results
-
-        print(f"   📖 补抓 {len(urls)} 条候选页，提取日期信号")
-        async with JinaClient(self.config.jina_api_key) as jina:
-            contents = await jina.extract_multiple(
-                urls,
-                max_concurrent=2,
-                cache_ttl=get_jina_cache_ttl("status"),
-            )
-
-        for result in results:
-            content = contents.get(result.get("url", ""))
-            if content and content.get("markdown"):
-                result["text"] = content["markdown"]
-                result["rerank_source"] = "jina"
+        """兼容旧调用；不再抓取第三方正文。"""
         return results
 
     def _get_fresh_update_refresh_urls(self, results: List[Dict], intent: str) -> List[str]:
@@ -433,77 +405,14 @@ class AgentSearch:
                 break
         return urls
 
-    async def _enrich_with_jina(self, results: List[Dict], intent: str = "general") -> List[Dict]:
-        """
-        使用 Jina Reader 深度提取所有结果
-        """
-        print("   📖 使用 Jina Reader 深度提取内容...")
-
-        extraction_limit = get_jina_extraction_limit(intent, self.config.mode, len(results))
-        urls = [r["url"] for r in results[:extraction_limit]]
-
-        if not urls:
-            for result in results:
-                result["content"] = result.get("text", "")
-                result["content_source"] = "original"
-            return results
-
-        async with JinaClient(self.config.jina_api_key) as jina:
-            contents = await jina.extract_multiple(
-                urls,
-                max_concurrent=3,
-                cache_ttl=get_jina_cache_ttl(intent)
-            )
-
+    def _attach_safe_content(self, results: List[Dict]) -> List[Dict]:
         for result in results:
-            url = result["url"]
-            if url in contents and contents[url]:
-                result["content"] = contents[url]["markdown"]
-                result["content_source"] = "jina"
-            else:
-                result["content"] = result.get("text", "")
-                result["content_source"] = "original"
-
+            apply_content_safety(result)
         return results
 
     async def _conditional_enrich(self, results: List[Dict], intent: str = "general") -> List[Dict]:
-        """
-        根据质量条件决定是否使用 Jina Reader
-        """
-        async with JinaClient(self.config.jina_api_key) as jina:
-            urls_to_extract = []
-            extraction_limit = get_jina_extraction_limit(intent, self.config.mode, len(results))
-
-            for result in results:
-                should_extract, reason = jina.should_extract(result)
-                if should_extract:
-                    urls_to_extract.append((result["url"], reason))
-
-            if urls_to_extract:
-                urls_to_extract = urls_to_extract[:extraction_limit]
-                print(f"   📖 {len(urls_to_extract)} 条结果需要深度提取...")
-
-                urls = [u for u, _ in urls_to_extract]
-                contents = await jina.extract_multiple(
-                    urls,
-                    max_concurrent=3,
-                    cache_ttl=get_jina_cache_ttl(intent)
-                )
-
-                for result in results:
-                    url = result["url"]
-                    if url in contents and contents[url]:
-                        result["content"] = contents[url]["markdown"]
-                        result["content_source"] = "jina"
-                    else:
-                        result["content"] = result.get("text", "")
-                        result["content_source"] = "original"
-            else:
-                for result in results:
-                    result["content"] = result.get("text", "")
-                    result["content_source"] = "original"
-
-        return results
+        """兼容旧调用；统一返回安全摘录。"""
+        return self._attach_safe_content(results)
 
 
 async def search(
@@ -520,8 +429,6 @@ async def search(
     - EXA_API_KEY (可选)
     - BRAVE_API_KEY (可选)
     - TAVILY_API_KEY (可选)
-    - JINA_API_KEY (可选)
-
     Args:
         query: 搜索查询
         max_results: 最大返回结果数
@@ -543,8 +450,6 @@ async def search(
     exa_key = config.get('exa_api_key')
     brave_key = config.get('brave_api_key')
     tavily_key = config.get('tavily_api_key')
-    jina_key = config.get('jina_api_key')
-
     if not exa_key and not brave_key and not tavily_key:
         print("⚠️  警告: 未设置任何搜索 API Key")
         print("   推荐至少设置 TAVILY_API_KEY；也支持 BRAVE_API_KEY 或 EXA_API_KEY")
@@ -599,7 +504,6 @@ async def search(
         exa_api_key=exa_key,
         brave_api_key=brave_key,
         tavily_api_key=tavily_key,
-        jina_api_key=jina_key,
         max_results=max_results,
         mode=mode
     )

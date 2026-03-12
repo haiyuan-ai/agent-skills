@@ -6,7 +6,7 @@
 
 - 多源搜索: Tavily 主引擎 + Brave 补充 + Exa 兜底
 - 查询扩展: 自动生成互补检索词
-- 内容提取: 按需或全量使用 Jina Reader
+- 安全摘要: 仅返回搜索引擎摘要的短摘录，不抓取第三方页面全文
 - 结果融合: 去重、评分、统一排序
 - 智能缓存: SQLite 持久化缓存，支持精确 / 相似 / 向量匹配
 - 结构化输出: CLI 支持 `--json`，适合 Agent 消费
@@ -28,10 +28,10 @@ Agent Search 自动识别查询意图，针对不同场景采用不同策略：
 - 新闻/故障排查/版本类查询，Brave 作为补充源
 - Exa 语义搜索作为兜底，在结果质量不足或 `mode=deep` 时启用
 
-**Jina 正文提取：**
-- `mode=quick`: 不提取，使用原始摘要
-- `mode=standard`: 按意图提取 2-3 条高质量结果
-- `mode=deep`: 提取所有结果的全文
+**返回内容策略：**
+- `mode=quick`: 不扩展查询，只返回搜索摘要安全摘录
+- `mode=standard`: 扩展查询，只返回搜索摘要安全摘录
+- `mode=deep`: 更广泛检索与 advanced 搜索深度，但仍只返回搜索摘要安全摘录
 
 ## 依赖
 
@@ -58,7 +58,6 @@ cat > ~/.agents/haiyuan-ai/.env << 'EOF'
 TAVILY_API_KEY=”your-tavily-api-key”
 BRAVE_API_KEY=”your-brave-api-key”
 EXA_API_KEY=”your-exa-api-key”
-JINA_API_KEY=”your-jina-api-key”
 GEMINI_API_KEY=”your-gemini-api-key”
 EOF
 ```
@@ -79,7 +78,7 @@ EOF
 - `Brave` 在已配置时作为网页 / 官方站 / 新闻类补充
 - `Exa` 默认不走首轮，只在结果质量不足或 `mode=deep` 时补充
 
-`JINA_API_KEY` 不是必需项。未配置时仍会走 `r.jina.ai` 免费端点做内容提取；如果免费端点失败或超时，搜索结果会回退到原始摘要文本，不影响主搜索流程返回。
+出于安全原因，skill 不再抓取第三方网页正文，也不会在运行时加载整页内容到 agent 上下文中。
 
 用于评估“超过免费额度后是否继续付费调用”的粗略成本参考：
 
@@ -99,7 +98,7 @@ EOF
 # 结构化 JSON 输出
 ./scripts/agent-search-cli "Python 异步编程" --json
 
-# 深度搜索
+# 深度搜索（更广泛检索，但仍为摘要模式）
 ./scripts/agent-search-cli "Claude 3.5 新功能" --mode deep --max-results 15
 
 # 不扩展查询
@@ -127,7 +126,6 @@ config = SearchConfig(
     exa_api_key="...",
     brave_api_key="...",
     tavily_api_key="...",
-    jina_api_key="...",
     max_results=10,
     mode="standard",
 )
@@ -181,7 +179,8 @@ result = await searcher.search("Python 异步编程")
       "title": "...",
       "url": "...",
       "content": "...",
-      "content_source": "jina",
+      "content_source": "search_snippet",
+      "content_trust": "untrusted-sanitized",
       "quality_score": 0.92
     }
   ]
@@ -204,6 +203,7 @@ agent-search/
 │   ├── exa_client.py
 │   ├── brave_client.py
 │   ├── tavily_client.py
+│   ├── content_safety.py
 │   ├── jina_client.py
 │   ├── result_processor.py
 │   ├── config.py

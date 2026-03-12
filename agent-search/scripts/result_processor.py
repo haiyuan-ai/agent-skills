@@ -146,7 +146,6 @@ class QualityScorer:
         haystack = "\n".join([
             result.get("published_date", "") or "",
             result.get("title", "") or "",
-            result.get("text", "") or "",
         ])
 
         patterns = [

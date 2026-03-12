@@ -39,7 +39,7 @@ class ExaClient:
         self,
         query: str,
         num_results: int = 10,
-        include_text: bool = True,
+        include_text: bool = False,
         highlights: bool = True
     ) -> List[Dict]:
         """
@@ -84,7 +84,7 @@ class ExaClient:
                         "source": "exa",
                         "title": result.get("title", ""),
                         "url": result.get("url", ""),
-                        "text": result.get("text", ""),
+                        "text": " ".join(result.get("highlights", []) or []),
                         "highlights": result.get("highlights", []),
                         "score": result.get("score", 0),
                         "published_date": result.get("publishedDate", ""),

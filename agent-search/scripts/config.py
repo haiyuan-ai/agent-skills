@@ -94,7 +94,6 @@ def get_config() -> dict:
         'exa_api_key': get_api_key('EXA_API_KEY'),
         'brave_api_key': get_api_key('BRAVE_API_KEY'),
         'tavily_api_key': get_api_key('TAVILY_API_KEY'),
-        'jina_api_key': get_api_key('JINA_API_KEY'),
         'gemini_api_key': get_api_key('GEMINI_API_KEY'),
     }
 
