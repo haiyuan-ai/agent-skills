@@ -2,6 +2,8 @@
 Agent Search 测试
 """
 import asyncio
+import contextlib
+import io
 import pytest
 import sys
 import os
@@ -14,6 +16,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'scripts'))
 from result_processor import ResultMerger, QualityScorer
 from smart_cache import SmartCache
 from smart_similarity import SmartSimilarity
+from tavily_client import TavilyClient
 
 
 class TestResultMerger:
@@ -77,6 +80,28 @@ class TestQualityScorer:
         assert QualityScorer.calculate_freshness_score(today) == 1.0
         assert QualityScorer.calculate_freshness_score("") == 0.5
 
+    def test_extract_embedded_date(self):
+        result = {
+            "title": "Product update report 14",
+            "text": "posted @2025-09-03 17:10",
+            "published_date": "",
+        }
+        assert QualityScorer.extract_embedded_date(result) == "2025-09-03"
+
+        spaced_result = {
+            "title": "How is Product X",
+            "text": "上一篇 2024 年 6 月 23 日",
+            "published_date": "",
+        }
+        assert QualityScorer.extract_embedded_date(spaced_result) == "2024-6-23"
+
+        year_only_result = {
+            "title": "Product update report 04 2023 edition",
+            "text": "",
+            "published_date": "",
+        }
+        assert QualityScorer.extract_embedded_date(year_only_result) == "2023-01-01"
+
     def test_calculate_content_completeness(self):
         assert QualityScorer.calculate_content_completeness("a" * 100) == 0.3
         assert QualityScorer.calculate_content_completeness("a" * 1500) == 0.7
@@ -113,7 +138,8 @@ class TestQualityScorer:
         ranked = QualityScorer.rank(results, intent="release")
         urls = [r["url"] for r in ranked]
         assert "https://blog.csdn.net/foo/article/details/1" not in urls
-        assert ranked[0]["url"] == "https://nodejs.org/en/download/current"
+        assert ranked[0]["url"] == "https://github.com/nodejs/node/releases/tag/v25.8.0"
+        assert ranked[1]["url"] == "https://nodejs.org/en/download/current"
 
     def test_rank_troubleshooting_prefers_stackoverflow(self):
         results = [
@@ -201,6 +227,76 @@ class TestQualityScorer:
         ranked = QualityScorer.rank(results, intent="troubleshooting")
         assert ranked[0]["source"] == "brave"
         assert ranked[0]["source_bonus"] > ranked[1]["source_bonus"]
+
+    def test_rank_status_prefers_recent_update_results(self):
+        results = [
+            {
+                "title": "How is Product X? FAQ",
+                "url": "https://community.example.com/question/1",
+                "text": "上一篇 2024 年 6 月 23 日",
+                "score": 0.99,
+                "published_date": "",
+                "source": "tavily",
+            },
+            {
+                "title": "Product X update report 14",
+                "url": "https://vendor.example.com/updates/14",
+                "text": "posted @2025-09-03 17:10",
+                "score": 0.0,
+                "published_date": "",
+                "source": "exa",
+            },
+        ]
+        ranked = QualityScorer.rank(results, intent="status", query="Product X 怎么样")
+        assert ranked[0]["url"] == "https://vendor.example.com/updates/14"
+        assert ranked[0]["quality_breakdown"]["effective_published_date"] == "2025-09-03"
+
+    def test_rank_status_promotes_company_news_page(self):
+        results = [
+            {
+                "title": "Product X 最新战略发布 - 知乎专栏",
+                "url": "https://zhuanlan.zhihu.com/p/123456",
+                "text": "2025年10月21日 Product X 发布新战略",
+                "score": 0.99,
+                "source": "tavily",
+            },
+            {
+                "title": "新闻动态 - Product X",
+                "url": "https://www.productx.com/news",
+                "text": "Product X 公司动态与产品发布",
+                "score": 0.72,
+                "source": "tavily",
+            },
+        ]
+        ranked = QualityScorer.rank(results, intent="status", query="Product X 怎么样")
+        assert ranked[0]["url"] == "https://www.productx.com/news"
+
+    def test_rank_status_prefers_official_site_over_republisher(self):
+        results = [
+            {
+                "title": "Product X update roundup",
+                "url": "https://juejin.cn/post/1",
+                "text": "2025年10月21日 Product X 更新汇总",
+                "score": 0.98,
+                "source": "tavily",
+            },
+            {
+                "title": "新闻动态 - Product X",
+                "url": "https://www.productx.com/news",
+                "text": "Product X 公司动态与产品发布",
+                "score": 0.68,
+                "source": "tavily",
+            },
+            {
+                "title": "Product X release note mirror",
+                "url": "https://blog.csdn.net/foo/article/details/1",
+                "text": "Product X 功能发布",
+                "score": 0.9,
+                "source": "tavily",
+            },
+        ]
+        ranked = QualityScorer.rank(results, intent="status", query="Product X 怎么样")
+        assert ranked[0]["url"] == "https://www.productx.com/news"
 
 
 class TestSmartCache:
@@ -313,6 +409,44 @@ class TestSmartCache:
         assert deep_result["data"] == {"mode": "deep"}
         assert miss_result["hit"] is False
 
+    def test_identity_sensitive_queries_do_not_reuse_similar_cache(self):
+        cache = self._make_cache()
+        cache.set(
+            "Claude Opus 4.6 max context window tokens Anthropic 2025",
+            {"query": "Claude Opus 4.6 max context window tokens Anthropic 2025", "results": ["claude"]},
+            ttl=3600,
+        )
+        result = cache.get("GPT-5.4 max context window tokens OpenAI 2025")
+        assert result["hit"] is False
+
+    def test_identity_sensitive_queries_do_not_reuse_vector_cache(self, monkeypatch):
+        cache = self._make_cache()
+        cache.vector_search_available = True
+        cache.gemini_api_key = "test-key"
+        cache.set(
+            "Claude Opus 4.6 max context window tokens Anthropic 2025",
+            {"query": "Claude Opus 4.6 max context window tokens Anthropic 2025", "results": ["claude"]},
+            ttl=3600,
+        )
+
+        def fake_embedding(query, api_key):
+            if "Claude Opus" in query:
+                return [1.0, 0.0, 0.0]
+            if "GPT-5.4" in query:
+                return [0.99, 0.01, 0.0]
+            return [0.0, 0.0, 1.0]
+
+        monkeypatch.setattr("smart_cache.get_embedding", fake_embedding)
+
+        cache_id = cache._get_conn().execute(
+            "SELECT id FROM search_cache WHERE normalized_query = ?",
+            (cache._scoped_normalized_query("Claude Opus 4.6 max context window tokens Anthropic 2025"),),
+        ).fetchone()[0]
+        cache._store_vector(cache_id, "Claude Opus 4.6 max context window tokens Anthropic 2025")
+
+        result = cache.get("GPT-5.4 max context window tokens OpenAI 2025")
+        assert result["hit"] is False
+
 
 class TestSmartSimilarity:
     """测试智能相似度算法"""
@@ -383,16 +517,148 @@ class TestQueryExpansion:
         assert is_comparison_query("latest React docs") is False
 
     def test_detect_query_intent(self):
-        from agent_search import detect_query_intent
+        from agent_search import detect_query_intent, is_fresh_update_intent
         assert detect_query_intent("美以对伊朗行动的最新消息") == "news"
         assert detect_query_intent("npm install 报错") == "troubleshooting"
         assert detect_query_intent("Python vs Node.js") == "comparison"
         assert detect_query_intent("latest Node.js version") == "release"
+        assert detect_query_intent("袋鼠云的产品怎么样") == "status"
         assert detect_query_intent("Python 是什么") == "general"
+        assert is_fresh_update_intent("release") is True
+        assert is_fresh_update_intent("status") is True
+        assert is_fresh_update_intent("general") is False
+
+    def test_is_freshness_sensitive_query(self):
+        from agent_search import is_freshness_sensitive_query
+        assert is_freshness_sensitive_query("袋鼠云的产品怎么样") is True
+        assert is_freshness_sensitive_query("How is Vercel now") is True
+        assert is_freshness_sensitive_query("Python 是什么") is False
+
+    def test_get_status_query_subject(self):
+        from agent_search import get_status_query_subject
+        assert get_status_query_subject("袋鼠云的产品怎么样") == "袋鼠云"
+        assert get_status_query_subject("Cursor 现在如何") == "Cursor"
+        assert get_status_query_subject("腾讯云最近怎么样") == "腾讯云"
+        assert get_status_query_subject("阿里云最新动态") == "阿里云"
+        assert get_status_query_subject("How is Vercel now") == "vercel"
+        assert get_status_query_subject("Python 是什么") == "Python 是什么"
+
+    def test_discover_official_domains(self):
+        from agent_search import discover_official_domains, score_official_domain_candidate, domain_matches_subject
+        results = [
+            {
+                "title": "Product X 功能更新",
+                "url": "https://vendor.example.com/updates/14",
+                "text": "Product X 新版本发布",
+            },
+            {
+                "title": "Product X 怎么样",
+                "url": "https://zhuanlan.zhihu.com/p/123",
+                "text": "讨论 Product X",
+            },
+            {
+                "title": "Product X 官方博客",
+                "url": "https://vendor.example.com/blog/launch",
+                "text": "Product X 发布会回顾",
+            },
+            {
+                "title": "Product X 怎么样",
+                "url": "https://vendor-review.example.com/blog/article/42",
+                "text": "评测 Product X",
+            },
+            {
+                "title": "Product X 发布会专访",
+                "url": "https://www.leiphone.com/category/enterprise/abc.html",
+                "text": "Product X 相关新闻",
+            },
+        ]
+        assert discover_official_domains("Product X", results) == ["vendor.example.com"]
+        assert score_official_domain_candidate("Product X", results[-1]) < score_official_domain_candidate("Product X", results[0])
+        assert domain_matches_subject("cloud.tencent.com", "腾讯云") is True
+        assert domain_matches_subject("aliyun.com", "阿里云最新动态") is True
+        assert domain_matches_subject("cloud.tencent.com", "袋鼠云") is False
+
+    def test_build_status_site_queries(self):
+        from agent_search import build_status_site_queries
+        results = [
+            {
+                "title": "袋鼠云 官方博客",
+                "url": "https://www.example.com/blog/post",
+                "text": "袋鼠云 公司动态",
+            },
+            {
+                "title": "袋鼠云 怎么样",
+                "url": "https://www.zhihu.com/question/1",
+                "text": "讨论",
+            },
+        ]
+        queries = build_status_site_queries("袋鼠云的产品怎么样", results)
+        assert queries == [
+            "site:example.com 袋鼠云 产品更新",
+            "site:example.com 袋鼠云 公司动态",
+        ]
+
+    def test_build_status_discovery_queries(self):
+        from agent_search import build_status_discovery_queries
+        assert build_status_discovery_queries("袋鼠云的产品怎么样") == ["袋鼠云 官网"]
+        assert build_status_discovery_queries("How is Vercel now") == ["vercel official website"]
+
+    def test_platform_domains_are_conditional_not_always_republisher(self):
+        from result_processor import QualityScorer
+        tencent_result = {
+            "title": "腾讯云最新动态",
+            "url": "https://cloud.tencent.com/developer/article/1",
+            "text": "腾讯云产品更新",
+        }
+        aliyun_result = {
+            "title": "阿里云发布会",
+            "url": "https://developer.aliyun.com/article/1",
+            "text": "阿里云公司动态",
+        }
+        other_result = {
+            "title": "袋鼠云产品更新",
+            "url": "https://cloud.tencent.com/developer/article/2",
+            "text": "袋鼠云转载内容",
+        }
+        assert QualityScorer._is_company_site_like(tencent_result, "腾讯云最近怎么样") is True
+        assert QualityScorer._is_republisher_like(tencent_result, query="腾讯云最近怎么样") is False
+        assert QualityScorer._is_company_site_like(aliyun_result, "阿里云最新动态") is True
+        assert QualityScorer._is_republisher_like(aliyun_result, query="阿里云最新动态") is False
+        assert QualityScorer._is_republisher_like(other_result, query="袋鼠云的产品怎么样") is True
+
+    def test_site_role_treats_platform_self_query_as_official(self):
+        from result_processor import QualityScorer
+        juejin_result = {
+            "title": "掘金最新动态",
+            "url": "https://juejin.cn/news",
+            "text": "掘金社区产品更新",
+        }
+        mirrored_result = {
+            "title": "袋鼠云产品更新",
+            "url": "https://juejin.cn/post/123",
+            "text": "转载袋鼠云产品发布",
+        }
+        assert QualityScorer.classify_site_role(juejin_result, query="掘金最近动态") == "official"
+        assert QualityScorer.classify_site_role(mirrored_result, query="袋鼠云最近动态") == "community"
+
+    def test_site_role_distinguishes_media_and_community(self):
+        from result_processor import QualityScorer
+        media_result = {
+            "title": "Product X 发布会报道",
+            "url": "https://www.leiphone.com/category/enterprise/1.html",
+            "text": "媒体报道 Product X",
+        }
+        community_result = {
+            "title": "Product X 更新汇总",
+            "url": "https://juejin.cn/post/1",
+            "text": "社区转载 Product X",
+        }
+        assert QualityScorer.classify_site_role(media_result, query="Product X 怎么样") == "media"
+        assert QualityScorer.classify_site_role(community_result, query="Product X 怎么样") == "community"
 
     def test_strategy_version_in_cache_scope(self):
         from agent_search import STRATEGY_VERSION
-        assert STRATEGY_VERSION == "v8"
+        assert STRATEGY_VERSION == "v22"
 
     def test_query_source_plan(self):
         from agent_search import get_query_source_plan
@@ -400,14 +666,20 @@ class TestQueryExpansion:
         first_query_plan = get_query_source_plan("general", 0, True, True, True)
         assert first_query_plan == {"exa": False, "brave": False, "tavily": True}
 
+        status_first_plan = get_query_source_plan("status", 0, True, True, True, query="袋鼠云的产品怎么样")
+        assert status_first_plan == {"exa": True, "brave": True, "tavily": True}
+
         general_expanded = get_query_source_plan("general", 1, True, True, True)
         assert general_expanded == {"exa": False, "brave": False, "tavily": True}
+
+        status_expanded = get_query_source_plan("status", 1, True, True, True, query="袋鼠云的产品怎么样")
+        assert status_expanded == {"exa": True, "brave": True, "tavily": True}
 
         news_expanded = get_query_source_plan("news", 1, True, True, True)
         assert news_expanded == {"exa": False, "brave": True, "tavily": True}
 
         release_expanded = get_query_source_plan("release", 2, True, True, True)
-        assert release_expanded == {"exa": False, "brave": True, "tavily": True}
+        assert release_expanded == {"exa": True, "brave": True, "tavily": True}
 
         troubleshooting_expanded = get_query_source_plan("troubleshooting", 1, True, True, True)
         assert troubleshooting_expanded == {"exa": False, "brave": True, "tavily": True}
@@ -418,10 +690,30 @@ class TestQueryExpansion:
         fallback_plan = get_query_source_plan("general", 0, True, True, False)
         assert fallback_plan == {"exa": False, "brave": True, "tavily": False}
 
+        exa_only_plan = get_query_source_plan("general", 0, True, False, False)
+        assert exa_only_plan == {"exa": True, "brave": False, "tavily": False}
+
+    def test_get_tavily_options(self):
+        from agent_search import get_tavily_options
+
+        assert get_tavily_options("general", "standard") == {
+            "search_depth": "basic",
+            "topic": "general",
+        }
+        assert get_tavily_options("status", "standard") == {
+            "search_depth": "basic",
+            "topic": "general",
+        }
+        assert get_tavily_options("news", "deep") == {
+            "search_depth": "advanced",
+            "topic": "news",
+        }
+
     def test_max_queries_for_intent(self):
         from agent_search import get_max_queries_for_intent
         assert get_max_queries_for_intent("general", "Python tutorial") == 2
-        assert get_max_queries_for_intent("release", "latest Node.js version") == 2
+        assert get_max_queries_for_intent("status", "袋鼠云的产品怎么样") == 4
+        assert get_max_queries_for_intent("release", "latest Node.js version") == 4
         assert get_max_queries_for_intent("news", "美以对伊朗行动的最新消息") == 3
         assert get_max_queries_for_intent("comparison", "Python vs Node.js") == 3
         assert get_max_queries_for_intent("troubleshooting", "Python module not found after installing package in CI pipeline") == 2
@@ -429,6 +721,7 @@ class TestQueryExpansion:
     def test_jina_extraction_limit(self):
         from agent_search import get_jina_extraction_limit
         assert get_jina_extraction_limit("general", "quick", 10) == 0
+        assert get_jina_extraction_limit("status", "standard", 10) == 3
         assert get_jina_extraction_limit("release", "standard", 10) == 3
         assert get_jina_extraction_limit("comparison", "standard", 10) == 2
         assert get_jina_extraction_limit("news", "deep", 1) == 1
@@ -436,7 +729,8 @@ class TestQueryExpansion:
     def test_jina_cache_ttl(self):
         from agent_search import get_jina_cache_ttl
         assert get_jina_cache_ttl("news") == 900
-        assert get_jina_cache_ttl("release") == 43200
+        assert get_jina_cache_ttl("status") == 21600
+        assert get_jina_cache_ttl("release") == 21600
         assert get_jina_cache_ttl("troubleshooting") == 86400
         assert get_jina_cache_ttl("general") == 21600
 
@@ -454,6 +748,7 @@ class TestQueryExpansion:
         ]
         assert should_early_stop(strong_results, max_results=3, intent="release") is True
         assert should_early_stop(weak_results, max_results=3, intent="general") is False
+        assert should_early_stop(strong_results, max_results=3, intent="status", query="袋鼠云的产品怎么样") is False
 
     def test_should_use_exa_fallback(self):
         from agent_search import should_use_exa_fallback
@@ -468,9 +763,48 @@ class TestQueryExpansion:
             {"title": "Weak 3", "url": "https://example.com/c", "text": "a" * 600, "score": 0.48, "source": "brave"},
         ]
         assert should_use_exa_fallback(strong_results, 3, "general", "standard", True) is False
+        assert should_use_exa_fallback(strong_results, 3, "status", "standard", True) is True
         assert should_use_exa_fallback(weak_results, 3, "general", "standard", True) is True
         assert should_use_exa_fallback(strong_results, 3, "general", "deep", True) is True
         assert should_use_exa_fallback(strong_results, 3, "general", "standard", False) is False
+
+    def test_has_stale_status_results(self):
+        from agent_search import has_stale_status_results
+
+        stale_results = [
+            {
+                "title": "Product update report 01",
+                "url": "https://example.com/post1",
+                "text": "Posted at 2022-01-01",
+                "score": 0.9,
+                "source": "tavily",
+            },
+            {
+                "title": "Product overview",
+                "url": "https://example.com/post2",
+                "text": "General overview without date",
+                "score": 0.8,
+                "source": "tavily",
+            },
+        ]
+        fresh_results = [
+            {
+                "title": "Product update report 14",
+                "url": "https://example.com/post1",
+                "text": "posted @2025-09-03",
+                "score": 0.8,
+                "source": "exa",
+            },
+            {
+                "title": "Product launch announcement",
+                "url": "https://example.com/post2",
+                "text": "2026年1月27日",
+                "score": 0.7,
+                "source": "brave",
+            },
+        ]
+        assert has_stale_status_results(stale_results, current_year=2026) is True
+        assert has_stale_status_results(fresh_results, current_year=2026) is False
 
     def test_expand_query(self):
         from agent_search import expand_query
@@ -498,7 +832,7 @@ class TestQueryExpansion:
         assert any("发布说明" in q or "更新日志" in q for q in latest_doc_queries)
 
         latest_version_queries = expand_query("latest Node.js version")
-        assert len(latest_version_queries) <= 2
+        assert len(latest_version_queries) <= 4
         assert any("release notes" in q or "changelog" in q for q in latest_version_queries)
 
         troubleshooting_queries = expand_query("npm install 报错")
@@ -517,6 +851,155 @@ class TestQueryExpansion:
 
         english_comparison_queries = expand_query("Should I use Next.js or Remix")
         assert any("pros and cons" in q or "comparison" in q for q in english_comparison_queries)
+
+        freshness_queries = expand_query("袋鼠云的产品怎么样")
+        assert "袋鼠云的产品怎么样" in freshness_queries
+        assert any("官网 产品更新" in q or "发布会" in q or "公司动态" in q for q in freshness_queries)
+
+    def test_get_fresh_update_refresh_urls(self):
+        from agent_search import AgentSearch, SearchConfig
+
+        searcher = AgentSearch(SearchConfig())
+        results = [
+            {
+                "title": "Product X overview",
+                "url": "https://example.com/overview",
+                "text": "general summary",
+                "score": 0.8,
+                "source": "tavily",
+            },
+            {
+                "title": "Product X update report",
+                "url": "https://vendor.example.com/updates/14",
+                "text": "short snippet",
+                "score": 0.6,
+                "source": "tavily",
+            },
+            {
+                "title": "Product X launch announcement",
+                "url": "https://vendor.example.com/announcement/launch",
+                "text": "short snippet",
+                "score": 0.58,
+                "source": "brave",
+            },
+        ]
+        urls = searcher._get_fresh_update_refresh_urls(results, intent="status")
+        assert "https://vendor.example.com/updates/14" in urls
+        assert "https://vendor.example.com/announcement/launch" in urls
+        assert "https://example.com/overview" not in urls
+
+
+class TestClients:
+    def test_tavily_search_with_timeout_forwards_options(self, monkeypatch):
+        client = TavilyClient(api_key="test-key")
+        captured = {}
+
+        async def fake_search(query, num_results=8, search_depth="basic", topic="general"):
+            captured["query"] = query
+            captured["num_results"] = num_results
+            captured["search_depth"] = search_depth
+            captured["topic"] = topic
+            return [{"title": "ok"}]
+
+        monkeypatch.setattr(client, "search", fake_search)
+
+        result = asyncio.run(
+            client.search_with_timeout(
+                "latest updates",
+                5,
+                search_depth="advanced",
+                topic="news",
+                timeout=0.5,
+            )
+        )
+
+        assert result == [{"title": "ok"}]
+        assert captured == {
+            "query": "latest updates",
+            "num_results": 5,
+            "search_depth": "advanced",
+            "topic": "news",
+        }
+
+
+class TestSmartCacheLogging:
+    def test_cache_init_does_not_print(self):
+        tmpdir = tempfile.mkdtemp()
+        stdout = io.StringIO()
+        with contextlib.redirect_stdout(stdout):
+            SmartCache(cache_dir=tmpdir)
+        assert stdout.getvalue() == ""
+
+
+class TestSearchFlow:
+    def test_non_exact_cache_hit_rewrites_query(self, monkeypatch):
+        import agent_search
+
+        class FakeCache:
+            vector_search_available = False
+
+            def get(self, query, scope=None):
+                return {
+                    "hit": True,
+                    "match_type": "similar",
+                    "similarity": 0.7,
+                    "similarity_level": "medium",
+                    "similarity_breakdown": {},
+                    "original_query": "Claude Opus 4.6 max context window tokens Anthropic 2025",
+                    "data": {
+                        "query": "Claude Opus 4.6 max context window tokens Anthropic 2025",
+                        "results": [],
+                    },
+                }
+
+        monkeypatch.setattr(agent_search, "get_config", lambda: {})
+        monkeypatch.setattr(agent_search, "get_smart_cache", lambda: FakeCache())
+
+        result = asyncio.run(agent_search.search("OpenAI GPT-5.4 model context window max tokens"))
+
+        assert result["query"] == "OpenAI GPT-5.4 model context window max tokens"
+        assert result["cache_origin_query"] == "Claude Opus 4.6 max context window tokens Anthropic 2025"
+
+    def test_search_does_not_wait_for_vector_warmup(self, monkeypatch):
+        import agent_search
+
+        class FakeSearcher:
+            def __init__(self, config):
+                self.config = config
+
+            async def search(self, query, expand=True):
+                return {
+                    "query": query,
+                    "search_queries": [query],
+                    "sources_used": [],
+                    "total_found": 0,
+                    "unique_count": 0,
+                    "results_returned": 0,
+                    "results": [],
+                }
+
+        class FakeCache:
+            vector_search_available = True
+
+            def get(self, query, scope=None):
+                return {"hit": False, "match_type": "none", "data": None, "original_query": None, "similarity": 0.0}
+
+            def set(self, query, result, ttl=None, scope=None):
+                return 123
+
+            async def warm_vector(self, cache_id, query):
+                await asyncio.sleep(0.2)
+
+        monkeypatch.setattr(agent_search, "get_config", lambda: {})
+        monkeypatch.setattr(agent_search, "get_smart_cache", lambda: FakeCache())
+        monkeypatch.setattr(agent_search, "AgentSearch", FakeSearcher)
+
+        started = time.perf_counter()
+        result = asyncio.run(agent_search.search("test query"))
+        elapsed = time.perf_counter() - started
+
+        assert result["query"] == "test query"
+        assert elapsed < 0.1
 
 
 if __name__ == "__main__":

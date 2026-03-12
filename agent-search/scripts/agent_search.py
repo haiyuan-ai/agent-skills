@@ -5,11 +5,14 @@ Agent Search - 智能 Agent 搜索工具
 支持 Claude Code、OpenCode、Gemini CLI、Codex CLI 等。
 """
 import asyncio
+import copy
+import contextlib
+import re
 from datetime import datetime
 from typing import List, Dict, Optional, Literal
 from dataclasses import dataclass
 
-STRATEGY_VERSION = "v8"
+STRATEGY_VERSION = "v22"
 
 try:
     from .exa_client import ExaClient
@@ -131,7 +134,7 @@ def is_comparison_query(query: str) -> bool:
     return False
 
 
-def detect_query_intent(query: str) -> Literal["news", "troubleshooting", "comparison", "release", "general"]:
+def detect_query_intent(query: str) -> Literal["news", "status", "troubleshooting", "comparison", "release", "general"]:
     """识别查询主意图，用于扩展和排序"""
     if is_release_query(query):
         return "release"
@@ -139,9 +142,180 @@ def detect_query_intent(query: str) -> Literal["news", "troubleshooting", "compa
         return "troubleshooting"
     if is_news_query(query):
         return "news"
+    if is_freshness_sensitive_query(query):
+        return "status"
     if is_comparison_query(query):
         return "comparison"
     return "general"
+
+
+def is_fresh_update_intent(intent: str) -> bool:
+    """status/release 共享“新近官方更新”检索策略"""
+    return intent in {"status", "release"}
+
+
+def is_freshness_sensitive_query(query: str) -> bool:
+    """检测查询是否虽非新闻意图，但明显依赖较新的信息"""
+    lowered = query.lower()
+    chinese_terms = ["怎么样", "如何", "现状", "近况", "最近", "最新", "动态", "进展"]
+    english_terms = ["how is", "what's new", "whats new", "current", "recent", "latest", "updates", "status", "now"]
+
+    if any(term in query for term in chinese_terms):
+        return True
+    if any(term in lowered for term in english_terms):
+        return True
+    return False
+
+
+def get_status_query_subject(query: str) -> str:
+    """提取 status 查询里的主体，避免扩展词继续带着“怎么样/如何”"""
+    stripped = query.strip()
+    if not stripped:
+        return stripped
+
+    chinese_patterns = [
+        r"^(.*?)(?:最近|当前|现在)(?:怎么样|如何)\??$",
+        r"^(.*?)(?:最新动态|最新消息|最新进展|最新情况)\??$",
+        r"^(.*?)(?:的)?(?:产品|公司|平台|服务)?(?:怎么样|如何|现状|近况|最近发展|现在如何)\??$",
+    ]
+    for pattern in chinese_patterns:
+        match = re.match(pattern, stripped)
+        if match and match.group(1).strip():
+            return match.group(1).strip()
+
+    english_patterns = [
+        r"^how is\s+(.+?)(?:\s+now|\s+currently|\s+these days)?\??$",
+        r"^what(?:'s| is)\s+new with\s+(.+?)\??$",
+        r"^(.+?)\s+(?:current status|status|recent updates|latest updates)\??$",
+    ]
+    lowered = stripped.lower()
+    for pattern in english_patterns:
+        match = re.match(pattern, lowered)
+        if match and match.group(1).strip():
+            return match.group(1).strip()
+
+    return stripped
+
+
+def normalize_candidate_domain(url: str) -> str:
+    return QualityScorer._normalize_domain(url)
+
+
+def domain_matches_subject(domain: str, subject: str) -> bool:
+    return QualityScorer._domain_matches_subject(domain, (subject or "").strip().lower())
+
+
+def is_generic_content_domain(domain: str, subject: str = "") -> bool:
+    site_role = QualityScorer.classify_site_role({"url": f"https://{domain}"}, subject=subject)
+    return site_role in {"republisher", "community"}
+
+
+def is_media_domain(domain: str) -> bool:
+    site_role = QualityScorer.classify_site_role({"url": f"https://{domain}"})
+    return site_role == "media"
+
+
+def score_official_domain_candidate(subject: str, result: Dict) -> float:
+    domain = normalize_candidate_domain(result.get("url", ""))
+    site_role = QualityScorer.classify_site_role(result, subject=subject)
+    if not domain or site_role in {"republisher", "community"}:
+        return 0.0
+    if site_role == "media" or is_media_domain(domain):
+        return 0.2
+
+    subject_lower = subject.lower().strip()
+    title = (result.get("title", "") or "").lower()
+    text = (result.get("text", "") or "").lower()
+    url = (result.get("url", "") or "").lower()
+    haystack = " ".join([title, text, url])
+
+    if subject_lower not in haystack:
+        return 0.0
+    if any(token in title for token in ["怎么样", "评价", "评测", "review", "faq", "问答"]):
+        return 0.0
+    if any(token in url for token in ["/question/", "/answer/", "/faq", "/blog/article"]):
+        return 0.0
+
+    score = 1.0
+    brand_slug = re.sub(r"[^a-z0-9]+", "", subject_lower)
+    domain_slug = re.sub(r"[^a-z0-9]+", "", domain.split(".")[0])
+
+    if subject_lower in title:
+        score += 1.0
+    if subject_lower in url:
+        score += 0.6
+    if brand_slug and brand_slug in domain.replace(".", ""):
+        score += 1.6
+    if domain_slug and brand_slug and (domain_slug == brand_slug or brand_slug.startswith(domain_slug) or domain_slug.startswith(brand_slug)):
+        score += 0.8
+    if any(token in url for token in ["/blog", "/news", "/updates", "/update", "/release", "/announcement", "/events", "/bbs", "/about", "/product", "/products"]):
+        score += 0.8
+    if any(token in title for token in ["官网", "official", "发布", "更新", "动态", "launch", "update", "release"]):
+        score += 0.4
+    if "github.com/" in url:
+        score += 0.5
+    if any(token in text for token in ["copyright", "版权所有", "联系我们", "about us", "company", "产品", "解决方案"]):
+        score += 0.3
+
+    return score
+
+
+def discover_official_domains(subject: str, results: List[Dict], limit: int = 1) -> List[str]:
+    """从已召回结果中估计更像官方站点的候选域名，用于 status 二次定向查询"""
+    subject_lower = subject.lower().strip()
+    if not subject_lower:
+        return []
+
+    domain_scores: Dict[str, float] = {}
+    domain_hits: Dict[str, int] = {}
+
+    for result in results:
+        domain = normalize_candidate_domain(result.get("url", ""))
+        score = score_official_domain_candidate(subject, result)
+        if score <= 0:
+            continue
+
+        domain_scores[domain] = domain_scores.get(domain, 0.0) + score
+        domain_hits[domain] = domain_hits.get(domain, 0) + 1
+
+    ranked_domains = sorted(
+        domain_scores.items(),
+        key=lambda item: (item[1], domain_hits.get(item[0], 0)),
+        reverse=True,
+    )
+    return [domain for domain, score in ranked_domains if score >= 1.5][:limit]
+
+
+def build_status_site_queries(query: str, results: List[Dict], limit: int = 2) -> List[str]:
+    """基于候选官方域名生成 status 的 site 定向查询"""
+    subject = get_status_query_subject(query)
+    candidate_domains = discover_official_domains(subject, results, limit=1)
+    if not candidate_domains:
+        return []
+
+    domain = candidate_domains[0]
+    if contains_chinese(query):
+        queries = [
+            f"site:{domain} {subject} 产品更新",
+            f"site:{domain} {subject} 公司动态",
+        ]
+    else:
+        queries = [
+            f"site:{domain} {subject} official blog updates",
+            f"site:{domain} {subject} company news",
+        ]
+
+    return list(dict.fromkeys(queries))[:limit]
+
+
+def build_status_discovery_queries(query: str) -> List[str]:
+    """为 status 查询补一个通用的官网发现查询，不依赖任何品牌白名单"""
+    subject = get_status_query_subject(query)
+    if not subject:
+        return []
+    if contains_chinese(query):
+        return [f"{subject} 官网"]
+    return [f"{subject} official website"]
 
 
 def get_query_source_plan(
@@ -149,23 +323,31 @@ def get_query_source_plan(
     query_index: int,
     has_exa: bool,
     use_brave: bool,
-    use_tavily: bool
+    use_tavily: bool,
+    query: str = "",
 ) -> Dict[str, bool]:
     """
     根据查询意图和扩展查询序号，决定本轮使用哪些搜索源
 
     query_index=0 表示原始查询，后续为扩展查询。
     """
+    if is_fresh_update_intent(intent):
+        return {
+            "exa": has_exa,
+            "brave": use_brave,
+            "tavily": use_tavily,
+        }
+
     # Tavily 作为默认主引擎；没有 Tavily 时再退回 Brave。
     if query_index == 0:
         return {
-            "exa": False,
+            "exa": has_exa and not use_tavily and not use_brave,
             "brave": use_brave and not use_tavily,
             "tavily": use_tavily,
         }
 
     # 更偏网页命中的查询，在 Tavily 基础上允许 Brave 补充。
-    if intent in {"news", "release", "troubleshooting"}:
+    if intent in {"news", "troubleshooting"}:
         return {
             "exa": False,
             "brave": use_brave,
@@ -174,10 +356,35 @@ def get_query_source_plan(
 
     # general / comparison 默认仍以 Tavily 为主；无 Tavily 时退回 Brave。
     return {
-        "exa": False,
+        "exa": has_exa and not use_tavily and not use_brave,
         "brave": use_brave and not use_tavily,
         "tavily": use_tavily,
     }
+
+
+def get_tavily_options(
+    intent: str,
+    mode: Literal["quick", "standard", "deep"]
+) -> Dict[str, str]:
+    """根据搜索意图和模式生成 Tavily 参数"""
+    return {
+        "search_depth": "advanced" if mode == "deep" else "basic",
+        "topic": "news" if intent == "news" else "general",
+    }
+
+
+def _start_cache_warmup(cache, cache_id: Optional[int], query: str) -> None:
+    """在后台预热向量缓存，不阻塞搜索返回"""
+    if not cache_id or not getattr(cache, "vector_search_available", False):
+        return
+
+    task = asyncio.create_task(cache.warm_vector(cache_id, query))
+
+    def _consume_error(done_task: asyncio.Task) -> None:
+        with contextlib.suppress(asyncio.CancelledError, Exception):
+            done_task.result()
+
+    task.add_done_callback(_consume_error)
 
 
 def get_max_queries_for_intent(intent: str, query: str) -> int:
@@ -188,8 +395,10 @@ def get_max_queries_for_intent(intent: str, query: str) -> int:
 
     if intent == "general":
         return 2
+    if intent == "status":
+        return 4
     if intent == "release":
-        return 2
+        return 4
     if intent == "comparison":
         return 3
     if intent == "news":
@@ -210,6 +419,7 @@ def get_jina_extraction_limit(intent: str, depth: str, result_count: int) -> int
 
     intent_limits = {
         "release": 3,
+        "status": 3,
         "troubleshooting": 3,
         "news": 3,
         "comparison": 2,
@@ -226,7 +436,8 @@ def get_jina_cache_ttl(intent: str) -> int:
     """按意图设置 Jina 正文缓存 TTL"""
     ttl_map = {
         "news": 900,
-        "release": 43200,
+        "status": 21600,
+        "release": 21600,
         "troubleshooting": 86400,
         "comparison": 86400,
         "general": 21600,
@@ -237,7 +448,8 @@ def get_jina_cache_ttl(intent: str) -> int:
 def should_early_stop(
     results: List[Dict],
     max_results: int,
-    intent: str
+    intent: str,
+    query: str = "",
 ) -> bool:
     """
     判断首轮查询结果是否足够好，从而跳过后续扩展查询
@@ -245,7 +457,10 @@ def should_early_stop(
     if len(results) < max_results:
         return False
 
-    ranked = QualityScorer.rank([dict(r) for r in results], intent=intent)
+    if intent == "status":
+        return False
+
+    ranked = QualityScorer.rank([dict(r) for r in results], intent=intent, query=query)
     if len(ranked) < 3:
         return False
 
@@ -254,8 +469,10 @@ def should_early_stop(
     top_one_score = top_three[0].get("final_score", top_three[0].get("quality_score", 0.0))
 
     # 版本/文档与通用查询更适合早停；新闻和对比更依赖补充结果
-    if intent in {"release", "general"}:
+    if intent == "general":
         return top_one_score >= 0.82 and top_three_avg >= 0.76
+    if is_fresh_update_intent(intent):
+        return top_one_score >= 0.86 and top_three_avg >= 0.8
     if intent == "troubleshooting":
         return top_one_score >= 0.84 and top_three_avg >= 0.78
     return False
@@ -278,7 +495,7 @@ def should_use_exa_fallback(
     if len(results) < max_results:
         return True
 
-    ranked = QualityScorer.rank([dict(r) for r in results], intent=intent)
+    ranked = QualityScorer.rank([dict(r) for r in results], intent=intent, query="")
     if not ranked:
         return True
 
@@ -292,13 +509,43 @@ def should_use_exa_fallback(
         # general 默认先走 Tavily，必要时再加 Brave。普通网页在当前评分模型下
         # 很难达到官方文档/高权威域名的分数，因此需要更宽松的补 Exa 阈值。
         "general": (0.66, 0.65),
-        "release": (0.82, 0.75),
+        "status": (0.84, 0.76),
+        "release": (0.84, 0.76),
         "troubleshooting": (0.84, 0.76),
         "comparison": (0.83, 0.75),
         "news": (0.82, 0.74),
     }
     top_one_threshold, top_three_threshold = thresholds.get(intent, (0.8, 0.72))
     return top_one_score < top_one_threshold or top_three_avg < top_three_threshold
+
+
+def has_stale_status_results(results: List[Dict], current_year: Optional[int] = None) -> bool:
+    """判断 status 查询首轮结果是否明显偏旧或缺少时间信息"""
+    if not results:
+        return True
+
+    if current_year is None:
+        current_year = datetime.now().year
+
+    ranked = QualityScorer.rank([dict(r) for r in results], intent="status", query="")
+    top_results = ranked[:5]
+    if not top_results:
+        return True
+
+    dated_count = 0
+    recent_count = 0
+    for result in top_results:
+        effective_date = result.get("quality_breakdown", {}).get("effective_published_date", "")
+        if not effective_date:
+            continue
+        dated_count += 1
+        if effective_date.startswith(str(current_year)) or effective_date.startswith(str(current_year - 1)):
+            recent_count += 1
+
+    if dated_count == 0:
+        return True
+
+    return recent_count == 0 or dated_count < max(2, len(top_results) // 2)
 
 
 def expand_query(query: str) -> List[str]:
@@ -327,12 +574,14 @@ def expand_query(query: str) -> List[str]:
         if contains_chinese(query):
             queries.extend([
                 f"{query} 发布说明",
-                f"{query} 更新日志"
+                f"{query} 更新日志",
+                f"{query} 官方文档",
             ])
         else:
             queries.extend([
                 f"{query} release notes",
-                f"{query} changelog"
+                f"{query} changelog",
+                f"{query} official docs",
             ])
     elif intent == "troubleshooting":
         if contains_chinese(query):
@@ -374,6 +623,20 @@ def expand_query(query: str) -> List[str]:
             query + " 优缺点",
             query + " review" if not contains_chinese(query) else query + " 评测"
         ])
+    elif intent == "status":
+        subject = get_status_query_subject(query)
+        if contains_chinese(query):
+            queries.extend([
+                f"{subject} 官网 产品更新",
+                f"{subject} 发布会",
+                f"{subject} 公司动态",
+            ])
+        else:
+            queries.extend([
+                f"{subject} official blog updates",
+                f"{subject} changelog",
+                f"{subject} current status",
+            ])
     else:
         # 通用扩展
         if contains_chinese(query):
@@ -403,7 +666,8 @@ class AgentSearch:
         query: str,
         exa: Optional['ExaClient'] = None,
         brave: Optional['BraveClient'] = None,
-        tavily: Optional['TavilyClient'] = None
+        tavily: Optional['TavilyClient'] = None,
+        intent: str = "general",
     ) -> List[Dict]:
         """
         执行单次搜索（Exa、Brave、Tavily 并行）
@@ -427,7 +691,15 @@ class AgentSearch:
             tasks.append(brave.search_with_timeout(query, self.config.brave_max_results))
             task_sources.append('brave')
         if tavily:
-            tasks.append(tavily.search_with_timeout(query, self.config.tavily_max_results))
+            tavily_options = get_tavily_options(intent, self.config.mode)
+            tasks.append(
+                tavily.search_with_timeout(
+                    query,
+                    self.config.tavily_max_results,
+                    search_depth=tavily_options["search_depth"],
+                    topic=tavily_options["topic"],
+                )
+            )
             task_sources.append('tavily')
 
         if not tasks:
@@ -480,6 +752,7 @@ class AgentSearch:
 
         # 2. 扩展查询
         queries = expand_query(query) if expand else [query]
+        executed_queries = list(queries)
         intent = detect_query_intent(query)
         print(f"   扩展为 {len(queries)} 个查询")
         print(f"   查询意图: {intent}")
@@ -500,45 +773,67 @@ class AgentSearch:
 
             # 4. 执行原始查询（默认优先 Tavily，Brave 仅在缺少 Tavily 或特定意图下补充）
             all_results = []
-            first_plan = get_query_source_plan(intent, 0, has_exa, use_brave, use_tavily)
+            first_plan = get_query_source_plan(intent, 0, has_exa, use_brave, use_tavily, query=query)
             first_results = await self.search_single(
                 queries[0],
                 exa=exa if first_plan["exa"] else None,
                 brave=brave if first_plan["brave"] else None,
-                tavily=tavily if first_plan["tavily"] else None
+                tavily=tavily if first_plan["tavily"] else None,
+                intent=intent,
             )
             print(f"   ✓ '{queries[0]}' 返回 {len(first_results)} 条结果")
             all_results.extend(first_results)
 
-            if should_use_exa_fallback(
+            extra_status_queries: List[str] = []
+            if intent == "status" and has_stale_status_results(ResultMerger.deduplicate(all_results)):
+                print("   🕒 首轮结果偏旧，继续补充更偏最新动态的结果")
+                extra_status_queries = build_status_discovery_queries(query)
+                extra_status_queries.extend(build_status_site_queries(query, ResultMerger.deduplicate(all_results)))
+                extra_status_queries = list(dict.fromkeys(extra_status_queries))
+                if extra_status_queries:
+                    print(f"   🎯 补充 {len(extra_status_queries)} 条官方站点定向查询")
+                    executed_queries.extend([q for q in extra_status_queries if q not in executed_queries])
+
+            exa_fallback_used = should_use_exa_fallback(
                 ResultMerger.deduplicate(all_results),
                 self.config.max_results,
                 intent,
                 self.config.mode,
                 has_exa
-            ):
+            )
+            if exa_fallback_used:
                 print("   ➕ 首轮结果不足，补充 Exa 语义搜索")
-                exa_tasks = [self.search_single(queries[0], exa=exa)] if exa else []
-                if len(queries) > 1:
-                    exa_tasks.extend([self.search_single(q, exa=exa) for q in queries[1:]])
+                exa_tasks = []
+                if exa and not first_plan["exa"]:
+                    exa_tasks.append(self.search_single(queries[0], exa=exa, intent=intent))
+                exa_followups = queries[1:] + [q for q in extra_status_queries if q not in queries]
+                if exa and exa_followups:
+                    exa_tasks.extend([self.search_single(q, exa=exa, intent=intent) for q in exa_followups])
                 if exa_tasks:
                     exa_results_list = await asyncio.gather(*exa_tasks)
-                    for q, results in zip(queries, exa_results_list):
+                    exa_queries = ([queries[0]] if exa and not first_plan["exa"] else []) + exa_followups
+                    for q, results in zip(exa_queries, exa_results_list):
                         print(f"   ✓ Exa 补充 '{q}' 返回 {len(results)} 条结果")
                         all_results.extend(results)
-            elif len(queries) > 1 and should_early_stop(ResultMerger.deduplicate(all_results), self.config.max_results, intent):
+            if intent != "status" and len(queries) > 1 and should_early_stop(
+                ResultMerger.deduplicate(all_results),
+                self.config.max_results,
+                intent,
+                query=query,
+            ):
                 print("   ⏹️ 首轮结果质量足够，跳过扩展查询")
             else:
                 search_tasks = []
-                remaining_queries = queries[1:]
+                remaining_queries = queries[1:] + [q for q in extra_status_queries if q not in queries]
                 for idx, q in enumerate(remaining_queries, start=1):
-                    plan = get_query_source_plan(intent, idx, has_exa, use_brave, use_tavily)
+                    plan = get_query_source_plan(intent, idx, has_exa, use_brave, use_tavily, query=query)
                     search_tasks.append(
                         self.search_single(
                             q,
                             exa=exa if plan["exa"] else None,
                             brave=brave if plan["brave"] else None,
-                            tavily=tavily if plan["tavily"] else None
+                            tavily=tavily if plan["tavily"] else None,
+                            intent=intent,
                         )
                     )
 
@@ -547,6 +842,31 @@ class AgentSearch:
                     for q, results in zip(remaining_queries, results_list):
                         print(f"   ✓ '{q}' 返回 {len(results)} 条结果")
                         all_results.extend(results)
+
+                if intent == "status" and has_stale_status_results(ResultMerger.deduplicate(all_results)):
+                    late_status_queries = [
+                        q for q in build_status_site_queries(query, ResultMerger.deduplicate(all_results))
+                        if q not in executed_queries
+                    ]
+                    if late_status_queries:
+                        print(f"   🎯 基于已发现域名，继续补充 {len(late_status_queries)} 条 site 定向查询")
+                        executed_queries.extend(late_status_queries)
+                        late_tasks = []
+                        for idx, q in enumerate(late_status_queries, start=len(queries) + len(extra_status_queries)):
+                            plan = get_query_source_plan(intent, idx, has_exa, use_brave, use_tavily, query=query)
+                            late_tasks.append(
+                                self.search_single(
+                                    q,
+                                    exa=exa if plan["exa"] else None,
+                                    brave=brave if plan["brave"] else None,
+                                    tavily=tavily if plan["tavily"] else None,
+                                    intent=intent,
+                                )
+                            )
+                        late_results_list = await asyncio.gather(*late_tasks)
+                        for q, results in zip(late_status_queries, late_results_list):
+                            print(f"   ✓ '{q}' 返回 {len(results)} 条结果")
+                            all_results.extend(results)
         finally:
             if exa:
                 await exa.__aexit__(None, None, None)
@@ -559,8 +879,11 @@ class AgentSearch:
         unique_results = ResultMerger.deduplicate(all_results)
         print(f"   去重后: {len(unique_results)} 条")
 
+        if is_fresh_update_intent(intent) and self.config.mode != "quick":
+            unique_results = await self._refresh_fresh_update_candidates(unique_results, intent=intent)
+
         # 6. 质量评分和排序
-        ranked_results = QualityScorer.rank(unique_results, intent=intent)
+        ranked_results = QualityScorer.rank(unique_results, intent=intent, query=query)
 
         # 7. 限制返回数量
         final_results = ranked_results[:self.config.max_results]
@@ -576,13 +899,52 @@ class AgentSearch:
         # 9. 构建返回结构
         return {
             "query": query,
-            "search_queries": queries,
+            "search_queries": executed_queries,
             "sources_used": (["exa"] if has_exa else []) + (["brave"] if use_brave else []) + (["tavily"] if use_tavily else []),
             "total_found": len(all_results),
             "unique_count": len(unique_results),
             "results_returned": len(final_results),
             "results": final_results
         }
+
+    async def _refresh_fresh_update_candidates(self, results: List[Dict], intent: str) -> List[Dict]:
+        """为新近官方更新类查询补抓少量候选页正文，用于提取更可靠的日期信号"""
+        urls = self._get_fresh_update_refresh_urls(results, intent=intent)
+        if not urls:
+            return results
+
+        print(f"   📖 补抓 {len(urls)} 条候选页，提取日期信号")
+        async with JinaClient(self.config.jina_api_key) as jina:
+            contents = await jina.extract_multiple(
+                urls,
+                max_concurrent=2,
+                cache_ttl=get_jina_cache_ttl("status"),
+            )
+
+        for result in results:
+            content = contents.get(result.get("url", ""))
+            if content and content.get("markdown"):
+                result["text"] = content["markdown"]
+                result["rerank_source"] = "jina"
+        return results
+
+    def _get_fresh_update_refresh_urls(self, results: List[Dict], intent: str) -> List[str]:
+        ranked = QualityScorer.rank([dict(r) for r in results], intent=intent)
+        urls = []
+        for result in ranked[:6]:
+            if result.get("published_date"):
+                continue
+            if result.get("quality_breakdown", {}).get("effective_published_date"):
+                continue
+            if not (
+                QualityScorer._is_update_like_result(result)
+                or QualityScorer._is_official_update_path(result)
+            ):
+                continue
+            urls.append(result["url"])
+            if len(urls) >= 3:
+                break
+        return urls
 
     async def _enrich_with_jina(self, results: List[Dict], intent: str = "general") -> List[Dict]:
         """
@@ -738,7 +1100,12 @@ async def search(
                     print(f"     方法: {breakdown.get('method', 'vector_search')} | "
                           f"向量相似度: {breakdown.get('vector_similarity', 0):.1%}")
 
-            return cache_result['data']
+            cached_data = copy.deepcopy(cache_result['data'])
+            if isinstance(cached_data, dict):
+                cached_data['query'] = query
+                if match_type != 'exact':
+                    cached_data['cache_origin_query'] = cache_result.get('original_query')
+            return cached_data
 
     # 执行搜索
     search_config = SearchConfig(
@@ -763,13 +1130,15 @@ async def search(
             "general":         86400,   # 1 天
             "troubleshooting": 259200,  # 3 天（解决方案稳定）
             "comparison":      259200,  # 3 天（框架对比稳定）
-            "release":         86400,   # 1 天（版本偶尔更新）
+            "release":         21600,   # 6 小时（官方更新类）
+            "status":          21600,   # 6 小时（近况类）
         }
         ttl = intent_ttl_map.get(intent, 86400)
         # deep 模式内容最全，不缩短；quick 模式适当缩短（快速确认事实，不需要长期缓存）
         if mode == "quick":
             ttl = min(ttl, 43200)  # quick 最多缓存 12 小时
-        cache.set(query, result, ttl=ttl, scope=cache_scope)
+        cache_id = cache.set(query, result, ttl=ttl, scope=cache_scope)
+        _start_cache_warmup(cache, cache_id, query)
 
     return result
 

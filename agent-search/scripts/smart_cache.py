@@ -8,12 +8,14 @@
 4. 自动 TTL 过期清理
 5. 缓存统计和命中率分析
 """
+import asyncio
 import sqlite3
 import json
 import time
 import os
 import re
 import struct
+from copy import deepcopy
 from datetime import datetime
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass
@@ -137,11 +139,6 @@ class SmartCache:
         # 检查 Gemini API Key
         self.gemini_api_key = get_api_key('GEMINI_API_KEY')
         self.vector_search_available = self.gemini_api_key is not None
-        if self.vector_search_available:
-            print("✅ 向量搜索已启用 (Gemini Embedding API)")
-        else:
-            print("⚠️  向量搜索未启用 (未配置 GEMINI_API_KEY)")
-
     def _get_conn(self) -> sqlite3.Connection:
         """获取复用的数据库连接"""
         if self._conn is None:
@@ -218,6 +215,47 @@ class SmartCache:
     def _extract_keywords(self, query: str) -> List[str]:
         return self.similarity_calc.extract_keywords(query)
 
+    def _extract_identity_tokens(self, query: str) -> Dict[str, set]:
+        text = query.lower()
+        vendors = set(re.findall(r"\b(openai|anthropic|google|meta|mistral|xai|grok|deepseek|qwen|alibaba|aliyun|claude|gpt|gemini)\b", text))
+        versions = set(re.findall(r"\b[a-z]+[- ]?\d+(?:\.\d+)*\b|\b\d+(?:\.\d+)+\b", text))
+        years = set(re.findall(r"\b20\d{2}\b", text))
+        quoted_terms = set(re.findall(r"\b[a-z][a-z0-9.+-]{2,}\b", text))
+        key_terms = {
+            token for token in quoted_terms
+            if any(ch.isdigit() for ch in token) or token in vendors
+        }
+        return {
+            "vendors": vendors,
+            "versions": versions,
+            "years": years,
+            "key_terms": key_terms,
+        }
+
+    def _is_identity_sensitive_query(self, query: str) -> bool:
+        identity = self._extract_identity_tokens(query)
+        return bool(identity["vendors"] or identity["versions"] or identity["years"])
+
+    def _passes_identity_guard(self, query: str, cached_query: str) -> bool:
+        current = self._extract_identity_tokens(query)
+        cached = self._extract_identity_tokens(cached_query)
+
+        for field in ("vendors", "versions", "years"):
+            current_values = current[field]
+            cached_values = cached[field]
+            if current_values and cached_values and current_values != cached_values:
+                return False
+
+        current_terms = current["key_terms"]
+        cached_terms = cached["key_terms"]
+        if current_terms and cached_terms:
+            overlap = len(current_terms & cached_terms)
+            required = min(len(current_terms), len(cached_terms))
+            if overlap < required:
+                return False
+
+        return True
+
     def _get_exact_match(self, query: str, scope: Optional[str] = None) -> Optional[CacheEntry]:
         normalized = self._scoped_normalized_query(query, scope)
         conn = self._get_conn()
@@ -254,6 +292,9 @@ class SmartCache:
             if entry.is_expired():
                 continue
             result = self.similarity_calc.calculate(query, entry.query)
+            if result['is_match'] and self._is_identity_sensitive_query(query):
+                if not self._passes_identity_guard(query, entry.query):
+                    continue
             if result['is_match'] and (best_result is None or result['similarity'] > best_result['similarity']):
                 best_result = result
                 best_match = entry
@@ -303,6 +344,8 @@ class SmartCache:
                 best_entry = entry
 
         if best_entry and best_sim >= self.vector_similarity_threshold:
+            if self._is_identity_sensitive_query(query) and not self._passes_identity_guard(query, best_entry.query):
+                return None
             return best_entry, {
                 'similarity': best_sim,
                 'is_match': True,
@@ -336,7 +379,7 @@ class SmartCache:
                 'hit': True,
                 'match_type': 'exact',
                 'similarity': 1.0,
-                'data': exact.result_data,
+                'data': deepcopy(exact.result_data),
                 'original_query': exact.query
             }
 
@@ -351,7 +394,7 @@ class SmartCache:
                 'similarity': sim_result['similarity'],
                 'similarity_level': sim_result['level'],
                 'similarity_breakdown': sim_result['breakdown'],
-                'data': entry.result_data,
+                'data': deepcopy(entry.result_data),
                 'original_query': entry.query
             }
 
@@ -367,7 +410,7 @@ class SmartCache:
                     'similarity': sim_result['similarity'],
                     'similarity_level': sim_result['level'],
                     'similarity_breakdown': sim_result['breakdown'],
-                    'data': entry.result_data,
+                    'data': deepcopy(entry.result_data),
                     'original_query': entry.query
                 }
 
@@ -420,18 +463,33 @@ class SmartCache:
         cache_id = row[0] if row else None
         conn.commit()
 
-        # 异步存储向量（失败不影响主流程）
-        if self.vector_search_available and cache_id:
-            self._store_vector(cache_id, query)
-
         self.write_count += 1
         if self.write_count >= self.cleanup_interval:
             self.cleanup()
             self.write_count = 0
 
+        return cache_id
+
     def _store_vector(self, cache_id: int, query: str):
         """调用 Gemini Embedding API 生成向量并存储"""
         vec = get_embedding(query, self.gemini_api_key)
+        if vec is None:
+            return
+
+        vec_bytes = _pack_vector(vec)
+        conn = self._get_conn()
+        conn.execute(
+            "INSERT OR REPLACE INTO query_vectors (cache_id, embedding) VALUES (?, ?)",
+            (cache_id, vec_bytes)
+        )
+        conn.commit()
+
+    async def warm_vector(self, cache_id: Optional[int], query: str):
+        """后台生成并存储查询向量，避免阻塞主搜索流程"""
+        if not (self.vector_search_available and cache_id):
+            return
+
+        vec = await asyncio.to_thread(get_embedding, query, self.gemini_api_key)
         if vec is None:
             return
 

@@ -86,7 +86,7 @@ class TavilyClient:
 
                 # 处理搜索结果
                 search_results = data.get("results", [])
-                for result in search_results:
+                for idx, result in enumerate(search_results, 1):
                     results.append({
                         "source": "tavily",
                         "title": result.get("title", ""),
@@ -96,7 +96,7 @@ class TavilyClient:
                         "score": result.get("score", 0),  # Tavily 的相关性分数
                         "published_date": result.get("published_date", ""),
                         "author": result.get("author", ""),
-                        "position": search_results.index(result) + 1
+                        "position": idx,
                     })
 
                 return results
@@ -110,12 +110,14 @@ class TavilyClient:
         self,
         query: str,
         num_results: int = 8,
+        search_depth: str = "basic",
+        topic: str = "general",
         timeout: float = 10.0
     ) -> List[Dict]:
         """带超时的搜索"""
         try:
             return await asyncio.wait_for(
-                self.search(query, num_results),
+                self.search(query, num_results, search_depth=search_depth, topic=topic),
                 timeout=timeout
             )
         except asyncio.TimeoutError:

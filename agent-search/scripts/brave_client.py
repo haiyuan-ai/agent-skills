@@ -87,7 +87,8 @@ class BraveClient:
                         "text": result.get("description", ""),
                         "highlights": [],
                         "score": max(0.5, 1.0 - ((idx - 1) * 0.05)),
-                        "published_date": result.get("age", "") or "",
+                        "published_date": "",
+                        "age": result.get("age", "") or "",
                         "author": "",
                         "position": idx,
                     })
