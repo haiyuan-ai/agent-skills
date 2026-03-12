@@ -1025,6 +1025,46 @@ class TestSmartCacheLogging:
         assert stdout.getvalue() == ""
 
 
+class TestSmartCacheWarmVector:
+    def test_warm_vector_only_uses_to_thread_for_embedding(self, monkeypatch):
+        cache = SmartCache(cache_dir=tempfile.mkdtemp())
+        cache.gemini_api_key = "test-key"
+        cache.vector_search_available = True
+
+        conn = cache._get_conn()
+        conn.execute(
+            """
+            INSERT INTO search_cache
+            (query, normalized_query, result_data, keywords, timestamp, access_count, last_access, ttl, hit_count)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            ("test query", "test query", "{}", "[]", 0.0, 1, 0.0, 3600, 0),
+        )
+        cache_id = conn.execute(
+            "SELECT id FROM search_cache WHERE normalized_query = ?",
+            ("test query",),
+        ).fetchone()[0]
+        conn.commit()
+
+        thread_calls = []
+
+        async def fake_to_thread(func, *args, **kwargs):
+            thread_calls.append(func.__name__)
+            return func(*args, **kwargs)
+
+        monkeypatch.setattr("smart_cache.get_embedding", lambda query, api_key: [0.1, 0.2, 0.3])
+        monkeypatch.setattr("smart_cache.asyncio.to_thread", fake_to_thread)
+
+        asyncio.run(cache.warm_vector(cache_id, "test query"))
+
+        stored = conn.execute(
+            "SELECT COUNT(*) FROM query_vectors WHERE cache_id = ?",
+            (cache_id,),
+        ).fetchone()[0]
+        assert stored == 1
+        assert thread_calls == ["<lambda>"]
+
+
 class TestSearchFlow:
     def test_non_exact_cache_hit_rewrites_query(self, monkeypatch):
         import agent_search
