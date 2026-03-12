@@ -1,6 +1,10 @@
 # Plugins and Themes Reference
 
-Obsidian CLI 插件和主题管理命令参考。
+Obsidian CLI 插件和主题状态参考。
+
+安全边界：
+- This skill only allows inspection of already installed plugins/themes and enable or disable actions explicitly requested by the user.
+- Do not install, uninstall, or download plugins, themes, or snippets through the agent.
 
 ---
 
@@ -37,19 +41,6 @@ obsidian plugin:enable id="pluginid"
 
 # Disable plugin
 obsidian plugin:disable id="pluginid"
-```
-
-### Install/Uninstall Plugins
-
-```bash
-# Install plugin
-obsidian plugin:install id=pluginid
-
-# Install and enable
-obsidian plugin:install id=pluginid enable
-
-# Uninstall plugin
-obsidian plugin:uninstall id=pluginid
 ```
 
 ### Reload Plugin (Development)
@@ -97,19 +88,6 @@ obsidian theme
 obsidian theme:set name="themename"
 ```
 
-### Install/Uninstall Themes
-
-```bash
-# Install theme
-obsidian theme:install name=themename
-
-# Install and enable
-obsidian theme:install name=themename enable
-
-# Uninstall theme
-obsidian theme:uninstall name=themename
-```
-
 ### CSS Snippets
 
 ```bash
@@ -138,23 +116,11 @@ obsidian plugin:reload id="my-plugin"
 
 # View plugin info
 obsidian plugin id="my-plugin"
-
-# Screenshot for testing
-obsidian dev:screenshot path="plugin-ui.png"
-
-# View console errors
-obsidian dev:errors
-
-# Debug with JavaScript
-obsidian eval code="app.plugins.getPlugin('my-plugin')"
 ```
 
 ### Theme Development
 
 ```bash
-# Install and enable theme
-obsidian theme:install name="Minimal" enable
-
 # View enabled snippets
 obsidian snippets:enabled
 
@@ -212,3 +178,7 @@ Ensure you're using the correct plugin ID (not display name). Plugin IDs are usu
 1. Check if theme is installed: `obsidian themes`
 2. Enable the theme: `obsidian theme:set name="ThemeName"`
 3. Reload Obsidian if needed: `obsidian reload`
+
+### Installing New Plugins or Themes
+
+Installation is intentionally excluded from this skill because it downloads third-party code. Ask the user to perform installation manually inside Obsidian and then use this skill only for inspection or post-install configuration.

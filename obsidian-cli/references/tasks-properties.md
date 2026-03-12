@@ -149,7 +149,7 @@ obsidian aliases file="filename" verbose
 
 ## Daily Notes
 
-Daily notes 需要通过 Daily Notes 核心插件启用。命令使用 `command` 执行插件命令：
+Daily notes 需要通过 Daily Notes 核心插件启用。命令使用 `command` 执行已存在的 Obsidian 命令：
 
 ```bash
 # Open daily note (requires Daily Notes core plugin)
@@ -158,11 +158,9 @@ obsidian command id=daily-notes:daily-notes
 # Open daily note in new tab
 obsidian command id=daily-notes:daily-notes paneType=tab
 
-# Get daily note path (returns file path)
-obsidian eval code="app.vault.getConfig('dailyNotesSettings').folder"
 ```
 
-**Note**: Daily notes 相关文件操作使用标准文件命令：
+**Note**: Daily notes 相关文件操作使用标准文件命令。不要使用 `obsidian eval` 查询配置；如果路径不明确，先让用户提供目标文件名或从已知日期文件开始读取。
 
 ```bash
 # Read daily note content (replace YYYY-MM-DD.md with actual file)

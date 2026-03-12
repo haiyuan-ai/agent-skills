@@ -1,6 +1,10 @@
 # Advanced Commands Reference
 
-Obsidian CLI 高级命令参考：workspace、sync、publish、dev tools 等。
+Obsidian CLI 高级命令参考：workspace、sync、publish、history 等。
+
+安全边界：
+- This reference excludes commands that execute arbitrary JavaScript or browser-debug payloads.
+- Do not use developer-eval capabilities when acting on untrusted vault content.
 
 ---
 
@@ -152,99 +156,13 @@ obsidian history:open file="filename"
 
 ---
 
-## Developer Tools
+## Excluded High-Risk Commands
 
-### DevTools
+The following categories are intentionally not part of this skill because they expand the execution surface beyond local note management:
 
-```bash
-# Open DevTools
-obsidian devtools
-
-# Toggle debug mode
-obsidian dev:debug on
-obsidian dev:debug off
-```
-
-### CDP Commands
-
-```bash
-# Execute CDP command
-obsidian dev:cdp method="CDP.method" params='{"key":"value"}'
-```
-
-### Error Capture
-
-```bash
-# View errors
-obsidian dev:errors
-
-# Clear errors
-obsidian dev:errors clear
-```
-
-### Screenshot
-
-```bash
-# Take screenshot
-obsidian dev:screenshot path="screenshot.png"
-```
-
-### Console
-
-```bash
-# View console
-obsidian dev:console
-
-# With filters
-obsidian dev:console limit=100 level=error
-
-# Clear console
-obsidian dev:console clear
-```
-
-### CSS Inspection
-
-```bash
-# Query CSS selector
-obsidian dev:css selector=".classname"
-
-# Get specific property
-obsidian dev:css selector="#id" prop="color"
-```
-
-### DOM Queries
-
-```bash
-# Query DOM
-obsidian dev:dom selector="CSS selector"
-
-# Get attribute
-obsidian dev:dom selector="selector" attr="attrname"
-
-# Get CSS property
-obsidian dev:dom selector="selector" css="property"
-
-# Get text content
-obsidian dev:dom selector="selector" text
-
-# Get all matches
-obsidian dev:dom selector="selector" all
-```
-
-### Mobile Emulation
-
-```bash
-# Toggle mobile mode
-obsidian dev:mobile on
-obsidian dev:mobile off
-```
-
-### JavaScript Execution
-
-```bash
-# Execute JavaScript
-obsidian eval code="app.vault.getFiles().length"
-```
+- `obsidian eval ...`
+- `obsidian dev:cdp ...`
+- Commands that inspect or mutate the live app DOM, console, CSS, or DevTools state
 
 ---
 
