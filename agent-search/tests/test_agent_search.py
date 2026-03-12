@@ -938,6 +938,50 @@ class TestQueryExpansion:
         assert "https://vendor.example.com/announcement/launch" in urls
         assert "https://example.com/overview" not in urls
 
+    def test_build_status_summary_separates_event_and_latest_official(self):
+        from fresh_update_strategy import build_status_summary
+
+        results = [
+            {
+                "title": "袋鼠云春季发布会回顾",
+                "url": "https://www.dtstack.com/news/spring-launch",
+                "text": "2025年4月16日 发布会回顾",
+                "source": "tavily",
+                "final_score": 0.9,
+                "quality_breakdown": {"effective_published_date": "2025-04-16"},
+            },
+            {
+                "title": "请查收2025袋鼠云的‘数据智能’年终报告！",
+                "url": "https://www.dtstack.com/bbs/article/317205",
+                "text": "2026-01-22 官方动态",
+                "source": "tavily",
+                "final_score": 0.82,
+                "quality_breakdown": {"effective_published_date": "2026-01-22"},
+            },
+            {
+                "title": "袋鼠云产品功能更新报告（第13期）",
+                "url": "https://www.dtstack.com/bbs/article/34519",
+                "text": "2025-02-24 产品更新",
+                "source": "tavily",
+                "final_score": 0.84,
+                "quality_breakdown": {"effective_published_date": "2025-02-24"},
+            },
+            {
+                "title": "袋鼠云怎么样 - 第三方评测",
+                "url": "https://example.com/review",
+                "text": "2025-03-01 评测",
+                "source": "brave",
+                "final_score": 0.7,
+                "quality_breakdown": {"effective_published_date": "2025-03-01"},
+            },
+        ]
+
+        summary = build_status_summary(results, query="袋鼠云的产品怎么样", as_of_date="2026-03-12")
+        assert summary["latest_official_update"]["effective_published_date"] == "2026-01-22"
+        assert summary["latest_event"]["effective_published_date"] == "2025-04-16"
+        assert summary["latest_product_update"]["effective_published_date"] == "2025-02-24"
+        assert summary["latest_official_update"]["status_result_type"] == "company_update"
+
 
 class TestClients:
     def test_tavily_search_with_timeout_forwards_options(self, monkeypatch):

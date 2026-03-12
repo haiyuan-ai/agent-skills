@@ -19,6 +19,7 @@ try:
     from .tavily_client import TavilyClient
     from .jina_client import JinaClient
     from .fresh_update_strategy import (
+        build_status_summary,
         build_status_discovery_queries,
         build_status_site_queries,
         discover_official_domains,
@@ -58,6 +59,7 @@ except ImportError:
     from tavily_client import TavilyClient
     from jina_client import JinaClient
     from fresh_update_strategy import (
+        build_status_summary,
         build_status_discovery_queries,
         build_status_site_queries,
         discover_official_domains,
@@ -368,7 +370,7 @@ class AgentSearch:
                 result["content_source"] = "original"
 
         # 9. 构建返回结构
-        return {
+        response = {
             "query": query,
             "search_queries": executed_queries,
             "sources_used": (["exa"] if has_exa else []) + (["brave"] if use_brave else []) + (["tavily"] if use_tavily else []),
@@ -377,6 +379,9 @@ class AgentSearch:
             "results_returned": len(final_results),
             "results": final_results
         }
+        if intent == "status":
+            response["status_summary"] = build_status_summary(final_results, query=query)
+        return response
 
     async def _refresh_fresh_update_candidates(self, results: List[Dict], intent: str) -> List[Dict]:
         """为新近官方更新类查询补抓少量候选页正文，用于提取更可靠的日期信号"""

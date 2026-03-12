@@ -329,3 +329,75 @@ def expand_query(query: str) -> List[str]:
             queries.extend([query + " tutorial", query + " examples", query + " review"])
 
     return list(dict.fromkeys(queries))
+
+
+def _effective_date(result: Dict) -> str:
+    return result.get("quality_breakdown", {}).get("effective_published_date", "") or result.get("published_date", "")
+
+
+def _status_result_type(result: Dict, query: str) -> str:
+    role = classify_site_role(result, query=query)
+    title = (result.get("title", "") or "").lower()
+    url = (result.get("url", "") or "").lower()
+    text = (result.get("text", "") or "").lower()
+    haystack = " ".join([title, url, text])
+
+    event_tokens = ["发布会", "大会", "峰会", "conference", "summit", "event", "webinar", "launch event"]
+    review_tokens = ["评测", "评价", "怎么样", "review", "faq", "问答"]
+    product_tokens = ["产品更新", "功能更新", "更新报告", "发布说明", "更新日志", "release", "changelog", "update report"]
+
+    if role in {"community", "republisher", "media"} and any(token in haystack for token in review_tokens):
+        return "third_party_review"
+    if role in {"community", "republisher", "media"}:
+        return "third_party_coverage"
+    if any(token in haystack for token in event_tokens):
+        return "event"
+    if any(token in haystack for token in product_tokens):
+        return "product_update"
+    if role == "official":
+        return "company_update"
+    return "other"
+
+
+def _serialize_status_result(result: Dict, query: str) -> Dict:
+    return {
+        "title": result.get("title", ""),
+        "url": result.get("url", ""),
+        "effective_published_date": _effective_date(result),
+        "site_role": classify_site_role(result, query=query),
+        "status_result_type": _status_result_type(result, query),
+        "source": result.get("source", ""),
+        "final_score": result.get("final_score", result.get("quality_score", result.get("score", 0.0))),
+    }
+
+
+def build_status_summary(results: List[Dict], query: str, as_of_date: Optional[str] = None) -> Dict:
+    if as_of_date is None:
+        as_of_date = datetime.now().strftime("%Y-%m-%d")
+
+    def rank_key(result: Dict):
+        return (
+            _effective_date(result) or "",
+            result.get("final_score", result.get("quality_score", result.get("score", 0.0))),
+        )
+
+    official_results = [r for r in results if classify_site_role(r, query=query) == "official"]
+    official_with_dates = sorted([r for r in official_results if _effective_date(r)], key=rank_key, reverse=True)
+    latest_official = official_with_dates[0] if official_with_dates else (official_results[0] if official_results else None)
+
+    summary = {
+        "as_of_date": as_of_date,
+        "latest_official_update": _serialize_status_result(latest_official, query) if latest_official else None,
+    }
+
+    for field, result_type in [
+        ("latest_product_update", "product_update"),
+        ("latest_event", "event"),
+        ("latest_company_update", "company_update"),
+        ("latest_third_party_review", "third_party_review"),
+    ]:
+        typed_results = [r for r in results if _status_result_type(r, query) == result_type]
+        typed_results = sorted(typed_results, key=rank_key, reverse=True)
+        summary[field] = _serialize_status_result(typed_results[0], query) if typed_results else None
+
+    return summary
