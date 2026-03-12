@@ -298,6 +298,14 @@ class TestQualityScorer:
         ranked = QualityScorer.rank(results, intent="status", query="Product X 怎么样")
         assert ranked[0]["url"] == "https://www.productx.com/news"
 
+    def test_site_role_does_not_treat_unrelated_news_path_as_official(self):
+        result = {
+            "title": "Industry launch roundup",
+            "url": "https://vendor-review.example.com/news/product-x",
+            "text": "Third-party writeup about Product X",
+        }
+        assert QualityScorer.classify_site_role(result, query="Product X 怎么样") == "neutral"
+
 
 class TestSmartCache:
     """测试智能缓存（使用临时目录，不依赖 GEMINI_API_KEY）"""
@@ -447,6 +455,46 @@ class TestSmartCache:
         result = cache.get("GPT-5.4 max context window tokens OpenAI 2025")
         assert result["hit"] is False
 
+    def test_vector_cache_uses_next_valid_identity_match(self, monkeypatch):
+        cache = self._make_cache()
+        cache.vector_search_available = True
+        cache.gemini_api_key = "test-key"
+        cache.set(
+            "Claude Opus 4.6 max context window tokens Anthropic 2025",
+            {"query": "Claude Opus 4.6 max context window tokens Anthropic 2025", "results": ["claude"]},
+            ttl=3600,
+        )
+        cache.set(
+            "OpenAI GPT-5.4 model context window max tokens",
+            {"query": "OpenAI GPT-5.4 model context window max tokens", "results": ["gpt"]},
+            ttl=3600,
+        )
+
+        vectors = {
+            "Claude Opus 4.6 max context window tokens Anthropic 2025": [1.0, 0.0, 0.0],
+            "OpenAI GPT-5.4 model context window max tokens": [0.8, 0.2, 0.0],
+            "GPT-5.4 max context window tokens OpenAI 2025": [0.85, 0.15, 0.0],
+        }
+
+        monkeypatch.setattr("smart_cache.get_embedding", lambda query, api_key: vectors[query])
+        monkeypatch.setattr(cache, "_get_similar_match", lambda query, scope=None: None)
+
+        conn = cache._get_conn()
+        for query in [
+            "Claude Opus 4.6 max context window tokens Anthropic 2025",
+            "OpenAI GPT-5.4 model context window max tokens",
+        ]:
+            cache_id = conn.execute(
+                "SELECT id FROM search_cache WHERE normalized_query = ?",
+                (cache._scoped_normalized_query(query),),
+            ).fetchone()[0]
+            cache._store_vector(cache_id, query)
+
+        result = cache.get("GPT-5.4 max context window tokens OpenAI 2025")
+        assert result["hit"] is True
+        assert result["match_type"] == "vector"
+        assert result["original_query"] == "OpenAI GPT-5.4 model context window max tokens"
+
 
 class TestSmartSimilarity:
     """测试智能相似度算法"""
@@ -523,6 +571,8 @@ class TestQueryExpansion:
         assert detect_query_intent("Python vs Node.js") == "comparison"
         assert detect_query_intent("latest Node.js version") == "release"
         assert detect_query_intent("袋鼠云的产品怎么样") == "status"
+        assert detect_query_intent("OpenAI vs Anthropic current status") == "comparison"
+        assert detect_query_intent("Cursor vs Windsurf 最新动态") == "comparison"
         assert detect_query_intent("Python 是什么") == "general"
         assert is_fresh_update_intent("release") is True
         assert is_fresh_update_intent("status") is True
@@ -658,7 +708,7 @@ class TestQueryExpansion:
 
     def test_strategy_version_in_cache_scope(self):
         from agent_search import STRATEGY_VERSION
-        assert STRATEGY_VERSION == "v22"
+        assert STRATEGY_VERSION == "v23"
 
     def test_query_source_plan(self):
         from agent_search import get_query_source_plan

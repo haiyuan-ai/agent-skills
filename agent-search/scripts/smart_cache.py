@@ -218,7 +218,11 @@ class SmartCache:
     def _extract_identity_tokens(self, query: str) -> Dict[str, set]:
         text = query.lower()
         vendors = set(re.findall(r"\b(openai|anthropic|google|meta|mistral|xai|grok|deepseek|qwen|alibaba|aliyun|claude|gpt|gemini)\b", text))
-        versions = set(re.findall(r"\b[a-z]+[- ]?\d+(?:\.\d+)*\b|\b\d+(?:\.\d+)+\b", text))
+        versions = set(re.findall(r"\b[a-z]+(?:-[a-z]+)?[- ]\d+(?:\.\d+)*\b|\b[a-z]+-\d+(?:\.\d+)*\b|\b\d+(?:\.\d+)+\b", text))
+        versions = {
+            token for token in versions
+            if not re.fullmatch(r"(?:openai|anthropic|google|meta|mistral|xai|grok|deepseek|qwen|alibaba|aliyun)\s+20\d{2}", token)
+        }
         years = set(re.findall(r"\b20\d{2}\b", text))
         quoted_terms = set(re.findall(r"\b[a-z][a-z0-9.+-]{2,}\b", text))
         key_terms = {
@@ -335,6 +339,8 @@ class SmartCache:
             entry = CacheEntry.from_dict(row_dict)
             if entry.is_expired():
                 continue
+            if self._is_identity_sensitive_query(query) and not self._passes_identity_guard(query, entry.query):
+                continue
 
             cached_vec = _unpack_vector(row_dict['embedding'])
             sim = _cosine_similarity(query_vec, cached_vec)
@@ -344,8 +350,6 @@ class SmartCache:
                 best_entry = entry
 
         if best_entry and best_sim >= self.vector_similarity_threshold:
-            if self._is_identity_sensitive_query(query) and not self._passes_identity_guard(query, best_entry.query):
-                return None
             return best_entry, {
                 'similarity': best_sim,
                 'is_match': True,

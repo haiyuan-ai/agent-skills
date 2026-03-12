@@ -6,6 +6,33 @@ from typing import List, Dict
 from urllib.parse import urlparse
 from difflib import SequenceMatcher
 
+try:
+    from .query_intent import get_status_query_subject, is_freshness_sensitive_query
+    from .site_role import (
+        COMMUNITY_DOMAINS,
+        CONDITIONAL_PLATFORM_DOMAINS,
+        MEDIA_DOMAINS,
+        PLATFORM_OFFICIAL_BRANDS,
+        classify_site_role as resolve_site_role,
+        domain_matches_subject as match_site_domain_subject,
+        is_official_update_path as has_official_update_path,
+        matches_query_brand as matches_site_query_brand,
+        normalize_domain as normalize_site_domain,
+    )
+except ImportError:
+    from query_intent import get_status_query_subject, is_freshness_sensitive_query
+    from site_role import (
+        COMMUNITY_DOMAINS,
+        CONDITIONAL_PLATFORM_DOMAINS,
+        MEDIA_DOMAINS,
+        PLATFORM_OFFICIAL_BRANDS,
+        classify_site_role as resolve_site_role,
+        domain_matches_subject as match_site_domain_subject,
+        is_official_update_path as has_official_update_path,
+        matches_query_brand as matches_site_query_brand,
+        normalize_domain as normalize_site_domain,
+    )
+
 
 class ResultMerger:
     """搜索结果融合器"""
@@ -112,14 +139,7 @@ class QualityScorer:
     def _text_lower(result: Dict) -> str:
         return result.get("text", "").lower()
 
-    @staticmethod
-    def is_freshness_sensitive_query(query: str) -> bool:
-        if not query:
-            return False
-        lowered = query.lower()
-        chinese_terms = ["怎么样", "如何", "现状", "近况", "最近", "最新", "动态", "进展"]
-        english_terms = ["how is", "what's new", "whats new", "current", "recent", "latest", "updates", "status", "now"]
-        return any(term in query for term in chinese_terms) or any(term in lowered for term in english_terms)
+    is_freshness_sensitive_query = staticmethod(is_freshness_sensitive_query)
 
     @classmethod
     def extract_embedded_date(cls, result: Dict) -> str:
@@ -179,86 +199,20 @@ class QualityScorer:
 
     @classmethod
     def _is_official_update_path(cls, result: Dict) -> bool:
-        url = cls._url_lower(result)
-        return any(token in url for token in [
-            "/blog", "/news", "/updates", "/update", "/release", "/releases",
-            "/announcement", "/announcements", "/press", "/events", "/event",
-            "/changelog"
-        ])
+        return has_official_update_path(result)
 
-    COMMUNITY_DOMAINS = [
-        "zhihu.com",
-        "juejin.cn",
-        "csdn.net",
-        "cnblogs.com",
-        "segmentfault.com",
-        "stackoverflow.com",
-        "medium.com",
-        "dev.to",
-        "weixin.qq.com",
-        "sohu.com",
-        "baidu.com",
-        "163.com",
-    ]
-    CONDITIONAL_PLATFORM_DOMAINS = [
-        "cloud.tencent.com",
-        "aliyun.com",
-    ]
-
-    MEDIA_DOMAINS = [
-        "36kr.com",
-        "leiphone.com",
-        "ifanr.com",
-        "huxiu.com",
-        "donews.com",
-        "techcrunch.com",
-        "theverge.com",
-        "wired.com",
-        "forbes.com",
-        "reuters.com",
-        "apnews.com",
-        "bbc.com",
-        "cnn.com",
-    ]
+    COMMUNITY_DOMAINS = COMMUNITY_DOMAINS
+    CONDITIONAL_PLATFORM_DOMAINS = CONDITIONAL_PLATFORM_DOMAINS
+    MEDIA_DOMAINS = MEDIA_DOMAINS
+    PLATFORM_OFFICIAL_BRANDS = PLATFORM_OFFICIAL_BRANDS
 
     @staticmethod
     def _query_subject(query: str) -> str:
-        stripped = (query or "").strip()
-        if not stripped:
-            return ""
-        chinese_patterns = [
-            r"^(.*?)(?:最近|当前|现在)(?:怎么样|如何)\??$",
-            r"^(.*?)(?:最新动态|最新消息|最新进展|最新情况)\??$",
-            r"^(.*?)(?:的)?(?:产品|公司|平台|服务)?(?:怎么样|如何|现状|近况|最近发展|现在如何)\??$",
-        ]
-        for pattern in chinese_patterns:
-            match = re.match(pattern, stripped)
-            if match and match.group(1).strip():
-                return match.group(1).strip().lower()
-        english_patterns = [
-            r"^how is\s+(.+?)(?:\s+now|\s+currently|\s+these days)?\??$",
-            r"^what(?:'s| is)\s+new with\s+(.+?)\??$",
-            r"^(.+?)\s+(?:current status|status|recent updates|latest updates)\??$",
-        ]
-        lowered = stripped.lower()
-        for pattern in english_patterns:
-            match = re.match(pattern, lowered)
-            if match and match.group(1).strip():
-                return match.group(1).strip()
-        return lowered
+        return get_status_query_subject(query).lower().strip()
 
     @classmethod
     def _matches_query_brand(cls, result: Dict, query: str) -> bool:
-        subject = cls._query_subject(query)
-        if not subject:
-            return False
-        url = cls._url_lower(result)
-        title = cls._title_lower(result)
-        text = cls._text_lower(result)
-        subject_slug = re.sub(r"[^a-z0-9\u4e00-\u9fff]+", "", subject)
-        haystack = " ".join([url, title, text])
-        haystack_slug = re.sub(r"[^a-z0-9\u4e00-\u9fff]+", "", haystack)
-        return subject in haystack or (subject_slug and subject_slug in haystack_slug)
+        return matches_site_query_brand(result, query)
 
     @classmethod
     def _domain_matches_query_brand(cls, domain: str, query: str) -> bool:
@@ -267,61 +221,15 @@ class QualityScorer:
 
     @classmethod
     def _domain_matches_subject(cls, domain: str, subject: str) -> bool:
-        if not domain or not subject:
-            return False
-        normalized_domain = domain.lower()
-        subject_slug = re.sub(r"[^a-z0-9\u4e00-\u9fff]+", "", subject)
-        domain_slug = re.sub(r"[^a-z0-9]+", "", normalized_domain.split(".")[0])
-        if subject_slug and (subject_slug in re.sub(r"[^a-z0-9\u4e00-\u9fff]+", "", normalized_domain) or (domain_slug and (subject_slug.startswith(domain_slug) or domain_slug.startswith(subject_slug)))):
-            return True
-        for official_domain, aliases in cls.PLATFORM_OFFICIAL_BRANDS.items():
-            if normalized_domain == official_domain or normalized_domain.endswith(f".{official_domain}"):
-                return any(alias in subject for alias in aliases)
-        return False
+        return match_site_domain_subject(domain, subject)
 
     @classmethod
     def _normalize_domain(cls, url: str) -> str:
-        domain = urlparse(url).netloc.lower()
-        for prefix in ("www.", "m."):
-            if domain.startswith(prefix):
-                domain = domain[len(prefix):]
-        return domain
+        return normalize_site_domain(url)
 
     @classmethod
     def classify_site_role(cls, result: Dict, query: str = "", subject: str = "") -> str:
-        parsed = urlparse(result.get("url", ""))
-        domain = cls._normalize_domain(result.get("url", ""))
-        current_subject = (subject or cls._query_subject(query)).strip().lower()
-        domain_brand_match = bool(current_subject and cls._domain_matches_subject(domain, current_subject))
-        content_brand_match = bool(current_subject and cls._matches_query_brand(result, current_subject))
-
-        if domain_brand_match:
-            return "official"
-
-        path = (parsed.path or "").lower()
-        if any(domain == suffix or domain.endswith(f".{suffix}") for suffix in cls.CONDITIONAL_PLATFORM_DOMAINS):
-            return "republisher"
-        if any(domain == suffix or domain.endswith(f".{suffix}") for suffix in cls.MEDIA_DOMAINS):
-            return "media"
-        if any(domain == suffix or domain.endswith(f".{suffix}") for suffix in cls.COMMUNITY_DOMAINS):
-            if any(token in path for token in ["/question", "/questions", "/answer", "/answers", "/post", "/posts", "/article", "/p/"]):
-                return "community"
-            return "republisher"
-
-        if content_brand_match and cls._is_official_update_path(result):
-            return "official"
-        if cls._is_official_update_path(result):
-            return "official"
-
-        path = (parsed.path or "").lower()
-        if path in {"", "/", "/news"}:
-            return "official"
-        if any(token in path for token in [
-            "/news", "/blog", "/about", "/product", "/products", "/solution", "/solutions",
-            "/press", "/announcement", "/announcements", "/event", "/events", "/bbs"
-        ]):
-            return "official"
-        return "neutral"
+        return resolve_site_role(result, query=query, subject=subject)
 
     @classmethod
     def _is_company_site_like(cls, result: Dict, query: str) -> bool:
@@ -671,12 +579,3 @@ class QualityScorer:
                 results.insert(insert_at, promoted)
 
         return results
-    PLATFORM_OFFICIAL_BRANDS = {
-        "cloud.tencent.com": ["腾讯云", "tencent cloud"],
-        "aliyun.com": ["阿里云", "aliyun", "alibaba cloud"],
-        "juejin.cn": ["掘金", "juejin"],
-        "zhihu.com": ["知乎", "zhihu"],
-        "csdn.net": ["csdn"],
-        "cnblogs.com": ["博客园", "cnblogs"],
-        "segmentfault.com": ["segmentfault", "思否"],
-    }
