@@ -1096,5 +1096,139 @@ class TestSearchFlow:
         assert elapsed < 0.1
 
 
+class TestFreshUpdateStrategy:
+    """测试 fresh_update_strategy 模块"""
+
+    def test_is_fresh_update_intent(self):
+        from fresh_update_strategy import is_fresh_update_intent
+        assert is_fresh_update_intent("status") is True
+        assert is_fresh_update_intent("release") is True
+        assert is_fresh_update_intent("general") is False
+        assert is_fresh_update_intent("news") is False
+
+    def test_get_max_queries_for_intent(self):
+        from fresh_update_strategy import get_max_queries_for_intent
+        assert get_max_queries_for_intent("general", "test") == 2
+        assert get_max_queries_for_intent("status", "test") == 4
+        assert get_max_queries_for_intent("comparison", "test") == 3
+        assert get_max_queries_for_intent("news", "test") == 3
+        assert get_max_queries_for_intent("troubleshooting", "short") == 3
+        assert get_max_queries_for_intent("troubleshooting", "this is a very long query") == 2
+
+    def test_get_tavily_options(self):
+        from fresh_update_strategy import get_tavily_options
+        quick_opts = get_tavily_options("general", "quick")
+        assert quick_opts["search_depth"] == "basic"
+        assert quick_opts["topic"] == "general"
+
+        deep_opts = get_tavily_options("general", "deep")
+        assert deep_opts["search_depth"] == "advanced"
+
+        news_opts = get_tavily_options("news", "standard")
+        assert news_opts["topic"] == "news"
+
+    def test_expand_query_news(self):
+        from fresh_update_strategy import expand_query
+        # 中文新闻查询
+        queries = expand_query("俄乌战争最新消息")
+        assert len(queries) > 1
+        assert "俄乌战争最新消息" in queries
+        assert any("最新进展" in q for q in queries)
+
+        # 英文新闻查询
+        queries_en = expand_query("latest AI developments")
+        assert len(queries_en) > 1
+
+    def test_expand_query_release(self):
+        from fresh_update_strategy import expand_query
+        # 中文版本查询
+        queries = expand_query("Node.js 最新版本")
+        assert any("发布说明" in q or "更新日志" in q or "官方文档" in q for q in queries)
+
+        # 英文版本查询
+        queries_en = expand_query("React latest version")
+        assert any("release notes" in q.lower() or "changelog" in q.lower() for q in queries_en)
+
+    def test_should_early_stop_thresholds(self):
+        from fresh_update_strategy import should_early_stop
+        # 空结果不停止
+        assert should_early_stop([], 10, "general") is False
+
+        # 结果数量不足 max_results 时不停止（即使质量很好）
+        few_results = [
+            {"final_score": 0.90, "quality_score": 0.90, "url": "https://example.com/1"},
+            {"final_score": 0.88, "quality_score": 0.88, "url": "https://example.com/2"},
+        ]
+        assert should_early_stop(few_results, 10, "general") is False
+
+        # status 查询不应该提前停止（即使结果质量很好且数量足够）
+        many_results = [
+            {"final_score": 0.90, "quality_score": 0.90, "url": f"https://example.com/{i}"}
+            for i in range(12)
+        ]
+        assert should_early_stop(many_results, 10, "status") is False
+
+        # 验证函数返回布尔值
+        result = should_early_stop(many_results, 10, "general")
+        assert isinstance(result, bool)
+
+
+class TestSiteRole:
+    """测试 site_role 模块"""
+
+    def test_normalize_domain(self):
+        from site_role import normalize_domain
+        assert normalize_domain("https://www.example.com/path") == "example.com"
+        assert normalize_domain("https://m.example.com") == "example.com"
+        assert normalize_domain("https://example.com") == "example.com"
+
+    def test_domain_matches_subject(self):
+        from site_role import domain_matches_subject
+        assert domain_matches_subject("openai.com", "openai") is True
+        assert domain_matches_subject("github.com", "github") is True
+        assert domain_matches_subject("example.com", "unrelated") is False
+
+    def test_is_official_update_path(self):
+        from site_role import is_official_update_path
+        assert is_official_update_path({"url": "https://example.com/blog"}) is True
+        assert is_official_update_path({"url": "https://example.com/news"}) is True
+        assert is_official_update_path({"url": "https://example.com/releases"}) is True
+        assert is_official_update_path({"url": "https://example.com/changelog"}) is True
+        assert is_official_update_path({"url": "https://example.com/about"}) is False
+
+    def test_classify_site_role(self):
+        from site_role import classify_site_role
+        # 社区网站
+        result = {"url": "https://stackoverflow.com/questions/123", "title": "Question"}
+        assert classify_site_role(result) == "community"
+
+        # 媒体网站
+        result = {"url": "https://techcrunch.com/article", "title": "Article"}
+        assert classify_site_role(result) == "media"
+
+        # 知乎问题
+        result = {"url": "https://www.zhihu.com/question/123", "title": "Question"}
+        assert classify_site_role(result) == "community"
+
+        # 知乎专栏文章（/p/ 路径表示用户文章）
+        result = {"url": "https://zhuanlan.zhihu.com/p/123", "title": "Article"}
+        assert classify_site_role(result) == "community"
+
+        # 知乎首页
+        result = {"url": "https://www.zhihu.com", "title": "Zhihu"}
+        assert classify_site_role(result) == "republisher"
+
+        # 官方匹配
+        result = {"url": "https://openai.com/blog", "title": "OpenAI Blog"}
+        assert classify_site_role(result, subject="openai") == "official"
+
+    def test_matches_query_brand(self):
+        from site_role import matches_query_brand
+        result = {"title": "OpenAI GPT-4 Release", "text": "OpenAI announces GPT-4", "url": "https://openai.com"}
+        assert matches_query_brand(result, "openai") is True
+        assert matches_query_brand(result, "gpt-4") is True
+        assert matches_query_brand(result, "unrelated") is False
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

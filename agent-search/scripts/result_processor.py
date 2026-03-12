@@ -16,7 +16,6 @@ try:
         classify_site_role as resolve_site_role,
         domain_matches_subject as match_site_domain_subject,
         is_official_update_path as has_official_update_path,
-        matches_query_brand as matches_site_query_brand,
         normalize_domain as normalize_site_domain,
     )
 except ImportError:
@@ -29,7 +28,6 @@ except ImportError:
         classify_site_role as resolve_site_role,
         domain_matches_subject as match_site_domain_subject,
         is_official_update_path as has_official_update_path,
-        matches_query_brand as matches_site_query_brand,
         normalize_domain as normalize_site_domain,
     )
 
@@ -209,10 +207,6 @@ class QualityScorer:
     @staticmethod
     def _query_subject(query: str) -> str:
         return get_status_query_subject(query).lower().strip()
-
-    @classmethod
-    def _matches_query_brand(cls, result: Dict, query: str) -> bool:
-        return matches_site_query_brand(result, query)
 
     @classmethod
     def _domain_matches_query_brand(cls, domain: str, query: str) -> bool:

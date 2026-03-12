@@ -498,12 +498,17 @@ class SmartCache:
             return
 
         vec_bytes = _pack_vector(vec)
-        conn = self._get_conn()
-        conn.execute(
-            "INSERT OR REPLACE INTO query_vectors (cache_id, embedding) VALUES (?, ?)",
-            (cache_id, vec_bytes)
-        )
-        conn.commit()
+
+        # 使用 to_thread 避免在主事件循环中执行 DB 操作
+        def _store_vector():
+            conn = self._get_conn()
+            conn.execute(
+                "INSERT OR REPLACE INTO query_vectors (cache_id, embedding) VALUES (?, ?)",
+                (cache_id, vec_bytes)
+            )
+            conn.commit()
+
+        await asyncio.to_thread(_store_vector)
 
     def _update_access(self, normalized_query: str):
         conn = self._get_conn()

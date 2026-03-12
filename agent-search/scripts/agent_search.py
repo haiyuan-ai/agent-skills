@@ -109,6 +109,17 @@ class SearchConfig:
     enable_brave: bool = True  # 默认仅在部分意图下作为补充
     enable_tavily: bool = True  # 默认启用 Tavily 作为主搜索引擎
 
+    def __post_init__(self):
+        """验证配置值"""
+        if self.mode not in ("quick", "standard", "deep"):
+            raise ValueError(f"mode must be 'quick', 'standard' or 'deep', got {self.mode!r}")
+        if self.max_results < 1 or self.max_results > 50:
+            raise ValueError(f"max_results must be between 1 and 50, got {self.max_results}")
+        if self.brave_max_results < 1 or self.brave_max_results > 20:
+            raise ValueError(f"brave_max_results must be between 1 and 20, got {self.brave_max_results}")
+        if self.tavily_max_results < 1 or self.tavily_max_results > 20:
+            raise ValueError(f"tavily_max_results must be between 1 and 20, got {self.tavily_max_results}")
+
 
 def domain_matches_subject(domain: str, subject: str) -> bool:
     return match_site_domain_subject(domain, (subject or "").strip().lower())

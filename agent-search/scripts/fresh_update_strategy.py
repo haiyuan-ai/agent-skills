@@ -196,6 +196,16 @@ def get_jina_cache_ttl(intent: str) -> int:
 
 
 def should_early_stop(results: List[Dict], max_results: int, intent: str, query: str = "") -> bool:
+    """
+    判断是否满足质量要求，可以提前停止搜索。
+
+    阈值设定依据（基于经验值和意图特性）：
+    - general: top1≥0.82, top3_avg≥0.76 - 通用查询质量要求适中
+    - release/status: top1≥0.86, top3_avg≥0.80 - 时效性敏感，要求更高质量
+    - troubleshooting: top1≥0.84, top3_avg≥0.78 - 错误排查需要准确结果
+    - comparison: top1≥0.83, top3_avg≥0.75 - 对比查询需要多样性
+    - news: top1≥0.82, top3_avg≥0.74 - 新闻查询时效优先
+    """
     if len(results) < max_results:
         return False
     if intent == "status":
@@ -225,6 +235,14 @@ def should_use_exa_fallback(
     depth: str,
     has_exa: bool,
 ) -> bool:
+    """
+    判断是否需要使用 Exa 作为后备搜索源。
+
+    阈值设定依据：
+    - 当现有搜索结果质量低于预期时触发 Exa 补充
+    - 不同意图有不同的质量预期（参见 should_early_stop 的阈值说明）
+    - deep 模式始终启用 Exa 以获得更全面结果
+    """
     if not has_exa:
         return False
     if depth == "deep":
@@ -243,12 +261,14 @@ def should_use_exa_fallback(
     top_three_avg = sum(r.get("final_score", r.get("quality_score", 0.0)) for r in top_three) / 3
 
     thresholds = {
-        "general": (0.66, 0.65),
-        "status": (0.84, 0.76),
-        "release": (0.84, 0.76),
-        "troubleshooting": (0.84, 0.76),
-        "comparison": (0.83, 0.75),
-        "news": (0.82, 0.74),
+        # (top_one_threshold, top_three_threshold)
+        # 阈值含义：低于该值表示结果质量不足，需要 Exa 补充
+        "general": (0.66, 0.65),       # 通用查询：质量要求相对较低
+        "status": (0.84, 0.76),        # 近况查询：需要高质量结果
+        "release": (0.84, 0.76),       # 发布查询：需要高质量结果
+        "troubleshooting": (0.84, 0.76),  # 错误排查：需要准确结果
+        "comparison": (0.83, 0.75),    # 对比查询：需要多样化高质量结果
+        "news": (0.82, 0.74),          # 新闻查询：时效优先，质量要求略低
     }
     top_one_threshold, top_three_threshold = thresholds.get(intent, (0.8, 0.72))
     return top_one_score < top_one_threshold or top_three_avg < top_three_threshold
