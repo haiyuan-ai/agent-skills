@@ -708,7 +708,7 @@ class TestQueryExpansion:
 
     def test_strategy_version_in_cache_scope(self):
         from agent_search import STRATEGY_VERSION
-        assert STRATEGY_VERSION == "v23"
+        assert STRATEGY_VERSION == "v24"
 
     def test_query_source_plan(self):
         from agent_search import get_query_source_plan
