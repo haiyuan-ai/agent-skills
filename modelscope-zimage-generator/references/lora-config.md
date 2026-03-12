@@ -7,7 +7,7 @@ LoRA（Low-Rank Adaptation）配置指南。
 使用单个 LoRA 模型：
 
 ```bash
-python generate_image.py "A cat" output.jpg --lora "liuhaotian/llava-lora"
+python scripts/generate_image.py "A cat" output.jpg --lora "liuhaotian/llava-lora"
 ```
 
 ```json
@@ -21,7 +21,7 @@ python generate_image.py "A cat" output.jpg --lora "liuhaotian/llava-lora"
 使用多个 LoRA 模型，权重必须总和为 1.0：
 
 ```bash
-python generate_image.py "A cat" output.jpg --loras '{"lora1": 0.6, "lora2": 0.4}'
+python scripts/generate_image.py "A cat" output.jpg --loras '{"lora1": 0.6, "lora2": 0.4}'
 ```
 
 ```json
@@ -54,20 +54,20 @@ python generate_image.py "A cat" output.jpg --loras '{"lora1": 0.6, "lora2": 0.4
 ### Art Style LoRA
 
 ```bash
-python generate_image.py "A landscape" output.jpg \
+python scripts/generate_image.py "A landscape" output.jpg \
   --lora "artist/style-lora"
 ```
 
 ### Character LoRA
 
 ```bash
-python generate_image.py "A character portrait" output.jpg \
+python scripts/generate_image.py "A character portrait" output.jpg \
   --lora "character/anime-lora"
 ```
 
 ### Combined LoRAs
 
 ```bash
-python generate_image.py "A character in landscape" output.jpg \
+python scripts/generate_image.py "A character in landscape" output.jpg \
   --loras '{"character/lora": 0.6, "background/lora": 0.4}'
 ```

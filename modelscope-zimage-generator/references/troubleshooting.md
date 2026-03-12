@@ -65,7 +65,7 @@ curl -H "Authorization: Bearer ms-your-key" \
   https://api-inference.modelscope.cn/v1/models
 
 # 检查模型 ID
-python generate_image.py "test" test.jpg --model "Tongyi-MAI/Z-Image-Turbo"
+python scripts/generate_image.py "test" test.jpg --model "Tongyi-MAI/Z-Image-Turbo"
 ```
 
 ### "Task failed"
