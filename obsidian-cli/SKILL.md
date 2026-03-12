@@ -27,50 +27,50 @@ Automate Obsidian note-taking app using Obsidian CLI (v1.12+) for local note man
 
 Trigger this skill when the user:
 
-| 场景 | 中文表达示例 | English Examples |
-|------|------------|-----------------|
-| **Vault + 操作** | "vault 中的文章"、"笔记库里的内容"、"我的 md 文件" | "my vault", "notes in vault", "my md files" |
-| **读取/查看** | "读取 vault"、"看看那篇 XX 笔记" | "read my note", "show me my notes", "view this file" |
-| **修改/优化** | "修改 vault 内容"、"优化这篇文章"、"帮我改改" | "edit this note", "update my note", "modify the content" |
-| **创建/新增** | "创建新笔记"、"新增一篇 md" | "create a new note", "add a note about XX", "new note" |
-| **删除/归档** | "删除这篇笔记"、"归档旧文章" | "delete this note", "archive old files", "remove this" |
-| **整理/管理** | "整理我的 vault"、"管理笔记库" | "organize my notes", "manage my vault", "cleanup files" |
-| **搜索/查找** | "找找关于 AI 的笔记"、"搜索 vault" | "find notes about XX", "search my vault", "lookup" |
-| **任务/属性** | "查看待办任务"、"设置标签"、"添加属性" | "my tasks", "set tags", "add property" |
-| **Obsidian CLI 操作** | "obsidian 命令"、"vault CLI" | "obsidian read", "obsidian search", "obsidian tasks" |
+| Scenario | Chinese Examples | English Examples |
+|----------|------------------|------------------|
+| **Vault operations** | "vault 中的文章"、"笔记库里的内容"、"我的 md 文件" | "my vault", "notes in vault", "my md files" |
+| **Read / inspect** | "读取 vault"、"看看那篇 XX 笔记" | "read my note", "show me my notes", "view this file" |
+| **Edit / improve** | "修改 vault 内容"、"优化这篇文章"、"帮我改改" | "edit this note", "update my note", "modify the content" |
+| **Create / add** | "创建新笔记"、"新增一篇 md" | "create a new note", "add a note about XX", "new note" |
+| **Delete / archive** | "删除这篇笔记"、"归档旧文章" | "delete this note", "archive old files", "remove this" |
+| **Organize / manage** | "整理我的 vault"、"管理笔记库" | "organize my notes", "manage my vault", "cleanup files" |
+| **Search / find** | "找找关于 AI 的笔记"、"搜索 vault" | "find notes about XX", "search my vault", "lookup" |
+| **Tasks / properties** | "查看待办任务"、"设置标签"、"添加属性" | "my tasks", "set tags", "add property" |
+| **Obsidian CLI actions** | "obsidian 命令"、"vault CLI" | "obsidian read", "obsidian search", "obsidian tasks" |
 
 ## Core Workflow
 
-### 1. 解析用户请求
+### 1. Parse the user request
 
-确定操作类型：
-- 文件操作：read/create/edit/delete/move/rename
-- 内容管理：search/tasks/tags/properties
-- 链接管理：backlinks/links/orphans
-- 其他：daily notes/templates/workspace
+Identify the operation type:
+- File operations: `read`, `create`, `edit`, `delete`, `move`, `rename`
+- Content management: `search`, `tasks`, `tags`, `properties`
+- Link management: `backlinks`, `links`, `orphans`
+- Other supported areas: `daily notes`, `templates`, `workspace`
 
-### 2. 构建 CLI 命令
+### 2. Build the CLI command
 
-根据命令参考选择对应语法，注意：
-- 路径使用 `path="folder/file.md"` 格式
-- 带空格的值用引号包裹
-- 多行内容使用 `\n` 换行
+Choose the correct syntax from the command references:
+- Use `path="folder/file.md"` for full vault-relative paths
+- Quote values that contain spaces
+- Use `\n` for multiline content
 
-### 3. 执行命令
+### 3. Execute the command
 
-使用 `Bash` 工具执行 Obsidian CLI 命令，但必须遵守下面的安全约束：
+Use the `Bash` tool to run Obsidian CLI commands, but always apply the security constraints below:
 
 ```javascript
-// ✅ 只执行明确允许的 CLI 子命令，并对参数做严格引用
+// OK: use only explicitly allowed CLI subcommands and quote arguments strictly
 Bash('obsidian read path="Notes/MyNote.md"')
 
-// ❌ 不要把未校验的用户输入直接拼进命令
+// Avoid: never interpolate unvalidated user input directly into shell syntax
 // Bash(`obsidian read path="${userInput}"`)
 ```
 
-### 4. 返回结果
+### 4. Return the result
 
-将命令输出返回给用户，必要时解释结果含义。
+Return the command output to the user and explain it when necessary.
 
 ## Security Rules
 
@@ -90,13 +90,13 @@ If a user asks for plugin installation, theme installation, JavaScript evaluatio
 
 ## Prerequisites
 
-执行命令前确认：
-1. **Obsidian 应用正在运行** - CLI requires Obsidian app to be running
-2. **已启用 CLI** - Settings → General → Command line interface
-3. **`obsidian` 命令在 PATH 中**
+Before executing commands, confirm:
+1. **Obsidian is running**: the CLI requires the app to be open
+2. **CLI is enabled**: Settings → General → Command line interface
+3. **`obsidian` is on `PATH`**
 
 ```bash
-# 快速检查
+# Quick check
 obsidian version
 ```
 
@@ -174,11 +174,11 @@ obsidian tags counts sort=count
 
 ## Resources
 
-详细命令参考：
-- `references/file-operations.md` - 文件操作完整命令
-- `references/search-links.md` - 搜索和链接管理
-- `references/tasks-properties.md` - 任务和属性管理
-- `references/advanced-commands.md` - 高级命令（workspace/sync/history/publish）
+Detailed command references:
+- `references/file-operations.md` - file operation commands
+- `references/search-links.md` - search and link management
+- `references/tasks-properties.md` - tasks and property management
+- `references/advanced-commands.md` - advanced commands for workspace, sync, history, and publish
 
 ## Output Formats
 
@@ -192,7 +192,7 @@ obsidian bookmarks format=json
 # TSV
 obsidian tags format=tsv
 
-# YAML (properties)
+# YAML for properties
 obsidian properties format=yaml
 ```
 
