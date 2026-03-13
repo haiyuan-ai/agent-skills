@@ -1,3 +1,5 @@
+[English](./README.md) | [中文](./README-zh.md)
+
 # pandoc-converter
 
 基于 pandoc 的文档格式转换技能，开箱即用支持中英文。

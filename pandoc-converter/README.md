@@ -1,3 +1,5 @@
+[English](./README.md) | [中文](./README-zh.md)
+
 # pandoc-converter
 
 Convert between Markdown, Word (.docx), and PDF via pandoc with CJK support out of the box.
