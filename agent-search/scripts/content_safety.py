@@ -18,9 +18,10 @@ INJECTION_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"(system|developer)\s+prompt", re.IGNORECASE),
     re.compile(r"you\s+are\s+(chatgpt|claude|an?\s+ai|a\s+helpful\s+assistant)", re.IGNORECASE),
     re.compile(r"(follow|execute|obey)\s+these\s+instructions", re.IGNORECASE),
-    re.compile(r"(tool\s+call|function\s+call|browser\s+tool|web\s+search)", re.IGNORECASE),
     re.compile(r"(reveal|show|print)\s+(the\s+)?(system|hidden|developer)\s+(prompt|instructions?)", re.IGNORECASE),
     re.compile(r"(do not|don't)\s+mention", re.IGNORECASE),
+    re.compile(r"new\s+(instructions?|directives?|rules?)\s*:", re.IGNORECASE),
+    re.compile(r"act\s+as\s+(dan|jailbreak|unrestricted|evil)\b", re.IGNORECASE),
 )
 
 MAX_SNIPPET_CHARS = 700
@@ -33,6 +34,10 @@ def _normalize_whitespace(text: str) -> str:
     return text.strip()
 
 
+def _contains_injection(text: str) -> bool:
+    return any(pattern.search(text) for pattern in INJECTION_PATTERNS)
+
+
 def sanitize_untrusted_text(text: str, max_chars: int = MAX_SNIPPET_CHARS) -> str:
     """清洗不可信第三方文本，只保留低风险摘要。"""
     if not text:
@@ -43,7 +48,7 @@ def sanitize_untrusted_text(text: str, max_chars: int = MAX_SNIPPET_CHARS) -> st
         line = raw_line.strip()
         if not line:
             continue
-        if any(pattern.search(line) for pattern in INJECTION_PATTERNS):
+        if _contains_injection(line):
             continue
         cleaned_lines.append(line)
 
@@ -51,6 +56,11 @@ def sanitize_untrusted_text(text: str, max_chars: int = MAX_SNIPPET_CHARS) -> st
     cleaned = re.sub(r"`{3,}.*?`{3,}", " ", cleaned)
     cleaned = re.sub(r"<[^>]+>", " ", cleaned)
     cleaned = re.sub(r"\s{2,}", " ", cleaned).strip()
+
+    # 二次检查：多行文本 join 后可能重新构成跨行注入
+    if _contains_injection(cleaned):
+        return ""
+
     if len(cleaned) > max_chars:
         return cleaned[: max_chars - 3].rstrip() + "..."
     return cleaned
@@ -72,6 +82,12 @@ def apply_content_safety(result: Dict) -> Dict:
     snippet = pick_search_snippet(result)
     result["text"] = snippet
     result["content"] = snippet
+
+    # title 也需要过 injection 检测：攻击者可通过页面标题注入指令
+    title = result.get("title", "") or ""
+    if title and _contains_injection(title):
+        result["title"] = ""
+
     result["content_source"] = "search_snippet"
     result["content_trust"] = "untrusted-sanitized"
     result["content_preview_only"] = True
