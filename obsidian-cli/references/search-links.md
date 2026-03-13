@@ -8,30 +8,30 @@ Obsidian CLI 搜索和链接管理命令参考。
 
 ```bash
 # Basic search
-obsidian search query="keyword"
+obsidian search query='keyword'
 
 # Search with path limit
-obsidian search query="keyword" path="folder" limit=10
+obsidian search query='keyword' path='folder' limit=10
 
 # Case sensitive search
-obsidian search query="keyword" case
+obsidian search query='keyword' case
 
 # Return count only
-obsidian search query="keyword" total
+obsidian search query='keyword' total
 ```
 
 ### Search with Context
 
 ```bash
 # Search with surrounding context
-obsidian search:context query="keyword"
+obsidian search:context query='keyword'
 ```
 
 ### Open Search View
 
 ```bash
 # Open search view in Obsidian
-obsidian search:open query="keyword"
+obsidian search:open query='keyword'
 ```
 
 ---
@@ -40,10 +40,10 @@ obsidian search:open query="keyword"
 
 ```bash
 # Get backlinks for a file
-obsidian backlinks file="filename"
+obsidian backlinks file='filename'
 
 # Get backlink counts
-obsidian backlinks file="filename" counts
+obsidian backlinks file='filename' counts
 ```
 
 ---
@@ -52,7 +52,7 @@ obsidian backlinks file="filename" counts
 
 ```bash
 # Get outgoing links from a file
-obsidian links file="filename"
+obsidian links file='filename'
 ```
 
 ---
@@ -95,7 +95,7 @@ obsidian deadends
 ### Search notes by keyword
 
 ```bash
-obsidian search query="AI Agent" limit=20
+obsidian search query='AI Agent' limit=20
 ```
 
 ### Find orphan notes
@@ -113,5 +113,5 @@ obsidian unresolved verbose
 ### Check backlinks
 
 ```bash
-obsidian backlinks file="My Note" counts
+obsidian backlinks file='My Note' counts
 ```

@@ -8,10 +8,10 @@ Obsidian CLI 文件操作完整命令参考。
 
 ```bash
 # 创建文件
-obsidian create name=filename content="content" template=templatename open overwrite
+obsidian create name=filename content='content' template=templatename open overwrite
 
 # 使用完整路径
-obsidian create path="folder/filename.md" content="content" overwrite
+obsidian create path='folder/filename.md' content='content' overwrite
 ```
 
 ### Parameters
@@ -19,8 +19,8 @@ obsidian create path="folder/filename.md" content="content" overwrite
 | Parameter | Description | Example |
 |-----------|-------------|---------|
 | `name` | Filename only | `name=Meeting-Notes` |
-| `path` | Full path from vault root | `path="Work/Meeting-Notes.md"` |
-| `content` | File content (use \n for newlines) | `content="Line 1\n\nLine 2"` |
+| `path` | Full path from vault root | `path='Work/Meeting-Notes.md'` |
+| `content` | File content (use \n for newlines) | `content='Line 1\n\nLine 2'` |
 | `template` | Template name to apply | `template=Meeting` |
 | `open` | Open note after creating | `open` |
 | `overwrite` | Overwrite if exists | `overwrite` |
@@ -31,14 +31,13 @@ obsidian create path="folder/filename.md" content="content" overwrite
 
 ```bash
 # Read by filename (fuzzy match)
-obsidian read file="filename"
+obsidian read file='filename'
 
 # Read by full path
-obsidian read path="folder/filename.md"
-
-# Copy output to clipboard
-obsidian read path="file.md" --copy
+obsidian read path='folder/filename.md'
 ```
+
+> `--copy` writes to the system clipboard. Only use it when the user explicitly asks.
 
 ---
 
@@ -46,13 +45,13 @@ obsidian read path="file.md" --copy
 
 ```bash
 # Append to end of file
-obsidian append file="filename" content="content to append"
+obsidian append file='filename' content='content to append'
 
 # Append without newline
-obsidian append file="filename" content="inline content" inline
+obsidian append file='filename' content='inline content' inline
 
 # Append and open
-obsidian append file="filename" content="new line" inline open
+obsidian append file='filename' content='new line' inline open
 ```
 
 ---
@@ -61,10 +60,10 @@ obsidian append file="filename" content="new line" inline open
 
 ```bash
 # Prepend to beginning of file
-obsidian prepend file="filename" content="content to prepend"
+obsidian prepend file='filename' content='content to prepend'
 
 # Prepend and open
-obsidian prepend file="filename" content="## Heading" open
+obsidian prepend file='filename' content='## Heading' open
 ```
 
 ---
@@ -73,11 +72,10 @@ obsidian prepend file="filename" content="## Heading" open
 
 ```bash
 # Delete file (moves to system trash)
-obsidian delete file="filename"
-
-# Permanent delete (bypass trash)
-obsidian delete file="filename" permanent
+obsidian delete file='filename'
 ```
+
+> **`permanent` is not allowed by this skill.** Always use normal delete (system trash). This ensures files can be recovered.
 
 ---
 
@@ -85,10 +83,10 @@ obsidian delete file="filename" permanent
 
 ```bash
 # Move file to new location
-obsidian move file="filename" to="newpath"
+obsidian move file='filename' to='newpath'
 
 # Rename file
-obsidian rename file="filename" name="newname"
+obsidian rename file='filename' name='newname'
 ```
 
 ---
@@ -100,11 +98,11 @@ obsidian rename file="filename" name="newname"
 obsidian files
 
 # List files in folder
-obsidian files folder="folderpath"
+obsidian files folder='folderpath'
 
 # List files by extension
-obsidian files ext="md"
-obsidian files ext="pdf"
+obsidian files ext='md'
+obsidian files ext='pdf'
 ```
 
 ---
@@ -116,11 +114,11 @@ obsidian files ext="pdf"
 obsidian folders
 
 # List subfolders
-obsidian folders folder="parentfolder"
+obsidian folders folder='parentfolder'
 
 # Get folder info
-obsidian folder path="folderpath"
-obsidian folder path="folderpath" info=files
+obsidian folder path='folderpath'
+obsidian folder path='folderpath' info=files
 ```
 
 ---
@@ -131,12 +129,12 @@ CLI has no direct "edit" command. Use this workflow:
 
 ```bash
 # 1. Read file content
-obsidian read path="Writing-MP/article.md"
+obsidian read path='Writing-MP/article.md'
 
 # 2. Process text externally (delete/replace content)
 
 # 3. Write modified content back
-obsidian create path="Writing-MP/article.md" content="modified content" overwrite
+obsidian create path='Writing-MP/article.md' content='modified content' overwrite
 ```
 
 ---
@@ -150,10 +148,10 @@ obsidian create path="Writing-MP/article.md" content="modified content" overwrit
 parameter=value
 
 # Values with spaces
-parameter="value with spaces"
+parameter='value with spaces'
 
 # Multiline content
-content="line1\n\nparagraph2"
+content='line1\n\nparagraph2'
 
 # Newline and tab
 # \n = newline
@@ -163,7 +161,7 @@ content="line1\n\nparagraph2"
 ### Flags (Boolean Switches)
 
 ```bash
-obsidian create name="file" open overwrite
+obsidian create name='file' open overwrite
 ```
 
 Common flags:
@@ -177,20 +175,18 @@ Common flags:
 
 ```bash
 # By filename (fuzzy match)
-file="filename"
+file='filename'
 
 # By full path
-path="folder/filename.md"
+path='folder/filename.md'
 
 # By reference (file:line)
-ref="filename.md:8"
+ref='filename.md:8'
 ```
 
 ### Vault Targeting
 
 ```bash
-# Current vault (default)
-# Or specify:
-vault="VaultName"
-vault="VaultID"
+# Current vault (default) — always use the current vault
+# Do not use vault= to switch vaults with this skill
 ```

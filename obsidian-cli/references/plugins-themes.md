@@ -31,7 +31,7 @@ obsidian plugins:enabled
 
 ```bash
 # Get plugin info by ID
-obsidian plugin id="pluginid"
+obsidian plugin id='pluginid'
 ```
 
 ### Mutating Commands Are Out of Scope
@@ -39,9 +39,9 @@ obsidian plugin id="pluginid"
 Do not use:
 
 ```bash
-obsidian plugin:enable id="pluginid"
-obsidian plugin:disable id="pluginid"
-obsidian plugin:reload id="pluginid"
+obsidian plugin:enable id='pluginid'
+obsidian plugin:disable id='pluginid'
+obsidian plugin:reload id='pluginid'
 obsidian plugins:restrict on
 obsidian plugins:restrict off
 ```
@@ -87,7 +87,7 @@ obsidian snippets:enabled
 
 ```bash
 obsidian plugins:enabled
-obsidian plugin id="my-plugin"
+obsidian plugin id='my-plugin'
 ```
 
 ### Inspect Theme State

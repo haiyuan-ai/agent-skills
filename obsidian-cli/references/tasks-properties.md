@@ -22,7 +22,7 @@ obsidian tasks done
 obsidian tasks daily
 
 # Tasks with file paths and line numbers
-obsidian tasks file="filename" verbose
+obsidian tasks file='filename' verbose
 
 # Return count only
 obsidian tasks total
@@ -32,19 +32,19 @@ obsidian tasks total
 
 ```bash
 # View task at specific line
-obsidian task file="filename" line=8
+obsidian task file='filename' line=8
 
 # Toggle task status
-obsidian task ref="filename.md:8" toggle
+obsidian task ref='filename.md:8' toggle
 
 # Mark as done
-obsidian task file="filename" line=8 done
+obsidian task file='filename' line=8 done
 
 # Mark as todo
-obsidian task file="filename" line=8 todo
+obsidian task file='filename' line=8 todo
 
 # Set custom status
-obsidian task file="filename" line=8 status=-
+obsidian task file='filename' line=8 status=-
 ```
 
 ---
@@ -74,10 +74,10 @@ obsidian tags format=csv
 
 ```bash
 # Get info about specific tag
-obsidian tag name="#tagname"
+obsidian tag name='#tagname'
 
 # Verbose output
-obsidian tag name="#tagname" verbose
+obsidian tag name='#tagname' verbose
 ```
 
 ### Tags in File
@@ -87,7 +87,7 @@ obsidian tag name="#tagname" verbose
 obsidian tags active
 
 # Tags in specific file
-obsidian tags file="filename"
+obsidian tags file='filename'
 ```
 
 ---
@@ -113,19 +113,19 @@ obsidian properties format=yaml
 ### Read Property
 
 ```bash
-obsidian property:read name="propertyname" file="filename"
+obsidian property:read name='propertyname' file='filename'
 ```
 
 ### Set Property
 
 ```bash
-obsidian property:set name="propertyname" value="value" type=text|list|number|checkbox|date|datetime
+obsidian property:set name='propertyname' value='value' type=text|list|number|checkbox|date|datetime
 ```
 
 ### Remove Property
 
 ```bash
-obsidian property:remove name="propertyname" file="filename"
+obsidian property:remove name='propertyname' file='filename'
 ```
 
 ---
@@ -142,7 +142,7 @@ obsidian aliases
 obsidian aliases active
 
 # Aliases in specific file
-obsidian aliases file="filename" verbose
+obsidian aliases file='filename' verbose
 ```
 
 ---
@@ -164,10 +164,10 @@ obsidian command id=daily-notes:daily-notes paneType=tab
 
 ```bash
 # Read daily note content (replace YYYY-MM-DD.md with actual file)
-obsidian read path="2026-03-04.md"
+obsidian read path='2026-03-04.md'
 
 # Append to daily note
-obsidian append path="2026-03-04.md" content="- [ ] new task"
+obsidian append path='2026-03-04.md' content='- [ ] new task'
 ```
 
 ---
@@ -179,10 +179,10 @@ obsidian append path="2026-03-04.md" content="- [ ] new task"
 obsidian templates
 
 # Read template
-obsidian template:read name="templatename"
+obsidian template:read name='templatename'
 
 # Read template with resolved variables
-obsidian template:read name="templatename" resolve
+obsidian template:read name='templatename' resolve
 
 # Insert template
 obsidian template:insert name=templatename
@@ -222,16 +222,16 @@ obsidian tags format=json
 
 ```bash
 # Set a text property
-obsidian property:set name="status" value="in-progress" type=text
+obsidian property:set name='status' value='in-progress' type=text
 
 # Set a list property (tags)
-obsidian property:set name="tags" value="[\"work\",\"urgent\"]" type=list
+obsidian property:set name='tags' value='["work","urgent"]' type=list
 
 # Set a checkbox property
-obsidian property:set name="completed" value="false" type=checkbox
+obsidian property:set name='completed' value='false' type=checkbox
 
 # Set a date property
-obsidian property:set name="due" value="2024-02-01" type=date
+obsidian property:set name='due' value='2024-02-01' type=date
 ```
 
 ---
