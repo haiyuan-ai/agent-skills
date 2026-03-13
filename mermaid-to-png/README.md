@@ -1,161 +1,132 @@
 # mermaid-to-png
 
-将 Markdown 文件中的 Mermaid 图表转换为 PNG/SVG 图片，支持 4 套内置专业风格主题。
+将 Markdown 文件中的 Mermaid 代码块转换为 PNG/SVG 图片，并应用内置视觉主题。
 
-## 功能特性
+## 功能
 
-- 🚀 自动提取 Markdown 中的 Mermaid 代码块
-- 🎨 4 套内置风格主题：深色科技、清新商务、手绘草图、渐变现代
-- 🖼️ 支持自定义图片宽度、背景色、格式（PNG/SVG）
-- 📝 可选替换原文中的 Mermaid 代码为图片引用
-- 📦 批量处理多个图表
-- 🔧 微信公众号优化（推荐宽度 900px）
+- 自动提取 Markdown 中的 Mermaid fenced code block
+- 支持 4 套内置主题：`dark-tech`、`fresh-business`、`hand-drawn`、`gradient-modern`
+- 支持 PNG 和 SVG 输出
+- 支持自动识别图表类型：`flowchart`、`sequence`、`gantt`、`class`、`state`
+- 支持 `--replace` 输出替换了 Mermaid 图片引用的 Markdown 文件
+- 支持微信公众号常用宽度 `900px`
 
-## 安装
-
-### 前置依赖
+## 前置依赖
 
 ```bash
-# 1. 安装 Node.js 和 npm
-# 从 https://nodejs.org/ 下载安装
-
-# 2. 安装 mermaid-cli
 npm install -g @mermaid-js/mermaid-cli
-
-# 3. 确保 Python 3.8+ 已安装
 python3 --version
 ```
 
-## 使用方法
+脚本默认要求本地已安装 `mmdc`。只有显式传入 `--allow-npx` 时，才会回退到 `npx @mermaid-js/mermaid-cli`。
 
-### 基本用法
+## 基本用法
 
 ```bash
-# 转换 Markdown 文件
+# 默认导出 PNG 到 ./output
 python3 scripts/convert.py article.md
 
-# 指定输出目录
+# 输出到指定目录
 python3 scripts/convert.py article.md --output-dir ./images
 
-# 自定义宽度（微信公众号推荐 900px）
-python3 scripts/convert.py article.md --width 900
-
-# 生成 SVG 格式
+# 导出 SVG
 python3 scripts/convert.py article.md --format svg
 
-# 替换 Mermaid 代码为图片引用
+# 输出 900px 宽，适合微信公众号
+python3 scripts/convert.py article.md --width 900
+
+# 替换 Mermaid 代码块，额外生成 article_converted.md
 python3 scripts/convert.py article.md --replace
+
+# 没有本地 mmdc 时，显式允许 npx fallback
+python3 scripts/convert.py article.md --allow-npx
 ```
 
-### 使用风格主题
+## 主题示例
 
 ```bash
-# 深色科技风格（适合技术架构图）
-python3 scripts/convert.py article.md --style dark-tech --width 900
-
-# 清新商务风格（适合商务演示）
 python3 scripts/convert.py article.md --style fresh-business --width 900
-
-# 手绘草图风格（适合头脑风暴）
+python3 scripts/convert.py article.md --style dark-tech --width 900
 python3 scripts/convert.py article.md --style hand-drawn --width 900
-
-# 渐变现代风格（适合产品展示）
 python3 scripts/convert.py article.md --style gradient-modern --width 900
 ```
 
-### 风格主题参考
+主题建议：
 
-| 风格 | 名称 | 适用场景 | 特点 |
-|------|------|----------|------|
-| `dark-tech` | 深色科技 | 技术架构图 | 深色背景、霓虹强调色 |
-| `fresh-business` | 清新商务 | 商务演示 | 白色背景、蓝色强调 |
-| `hand-drawn` | 手绘草图 | 头脑风暴 | 纸张质感、手绘字体 |
-| `gradient-modern` | 渐变现代 | 产品展示 | 渐变背景、鲜艳色彩 |
+- `fresh-business`：报告、流程图、业务文档
+- `dark-tech`：架构图、系统图、工程博客
+- `hand-drawn`：头脑风暴、教学草图、研讨会材料
+- `gradient-modern`：产品介绍、营销视觉、演示稿
 
-### 作为 Claude Skill 使用
-
-```bash
-# 在 Claude Code 中直接使用
-mermaid-to-png article.md --width 900 --replace
-
-# 使用风格主题
-mermaid-to-png article.md --style dark-tech --width 900
-```
-
-## 参数说明
+## 参数
 
 | 参数 | 说明 | 默认值 |
 |------|------|--------|
-| `input` | 输入的 Markdown 文件路径 | 必填 |
+| `input` | 输入 Markdown 文件 | 必填 |
 | `--output-dir` | 图片输出目录 | `./output` |
-| `--style` | 风格主题 | 无 |
+| `--style` | 内置主题 | 无 |
 | `--width` | 图片宽度（像素） | `1200` |
 | `--background` | 背景色 | `white` |
-| `--format` | 输出格式（png/svg） | `png` |
-| `--replace` | 替换 Mermaid 代码为图片引用 | `false` |
+| `--format` | 输出格式 | `png` |
+| `--replace` | 输出替换后 Markdown | `false` |
+| `--chart-type` | 强制指定图表类型或使用 `auto` | `auto` |
+| `--allow-npx` | 允许在未安装本地 `mmdc` 时回退到 `npx` | `false` |
+| `--disable-browser-sandbox` | 禁用 Chromium sandbox，仅限受信环境 | `false` |
 
-## 示例
+## 输出
 
-### 输入文件（article.md）
+示例：
 
-```markdown
-# 系统架构
-
-## 整体架构
-
-```mermaid
-graph TB
-    A[客户端] --> B[API 网关]
-    B --> C[服务 A]
-    B --> D[服务 B]
-```
-```
-
-### 转换命令
-
-```bash
-python3 scripts/convert.py article.md --style dark-tech --width 900 --replace
-```
-
-### 输出
-
-```
+```text
 output/
 ├── diagram_1_a3f7d2e1.png
+├── diagram_2_b8c9a4f3.png
 └── article_converted.md
 ```
 
+使用 `--replace` 时，生成的 Markdown 会引用同目录下的图片文件名。
+
 ## 常见问题
 
-### mermaid-cli not found
+### Mermaid CLI 或浏览器启动失败
+
+先检查 Mermaid 语法，再检查本地 `mmdc` / Puppeteer 是否能正常启动。
+
+如果你在受限沙箱、CI、远程容器里运行，Chromium 可能无法启动；这种情况需要：
+
+- 在可启动本地浏览器的环境中执行
+- 或为 Puppeteer 提供可用的 Chrome/Chromium 环境
+- 或仅在你接受风险时，显式传入 `--disable-browser-sandbox`
+
+### 未安装 mmdc
+
+推荐直接安装：
 
 ```bash
 npm install -g @mermaid-js/mermaid-cli
 ```
 
-### 中文显示为方框
+如果只是临时运行，并且你接受动态执行 npm 包的风险，可以显式传入：
 
-**macOS:**
+```bash
+python3 scripts/convert.py article.md --allow-npx
+```
+
+### 中文显示异常
+
+macOS:
+
 ```bash
 brew install --cask font-noto-sans-cjk
 ```
 
-**Linux:**
+Linux:
+
 ```bash
 sudo apt-get install fonts-noto-cjk
 ```
 
-### 风格主题不生效
-
-```bash
-npm update -g @mermaid-js/mermaid-cli
-```
-
 ## 资源
 
-- [`scripts/convert.py`](scripts/convert.py) - 主转换脚本
-- [`scripts/styles.py`](scripts/styles.py) - 风格主题定义
-
-## 许可证
-
-MIT License
+- `scripts/convert.py`：主转换脚本
+- `scripts/styles.py`：主题和 Mermaid init 配置生成逻辑

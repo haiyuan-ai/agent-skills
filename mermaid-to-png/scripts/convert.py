@@ -63,13 +63,15 @@ def detect_chart_type(code: str) -> str:
     return "flowchart"
 
 
-def resolve_mmdc_command() -> List[str]:
-    """Prefer a locally installed mermaid CLI and fall back to npx."""
+def resolve_mmdc_command(allow_npx: bool = False) -> List[str]:
+    """Prefer a locally installed mermaid CLI and only fall back to npx when explicitly allowed."""
     for binary in ("mmdc", "@mermaid-js/mermaid-cli"):
         resolved = shutil.which(binary)
         if resolved:
             return [resolved]
-    return ["npx", "@mermaid-js/mermaid-cli"]
+    if allow_npx:
+        return ["npx", "@mermaid-js/mermaid-cli"]
+    raise FileNotFoundError("mmdc")
 
 
 def convert_mermaid_to_image(
@@ -77,25 +79,30 @@ def convert_mermaid_to_image(
     output_path: str,
     width: int = 1200,
     background: str = "white",
-    fmt: str = "png"
+    fmt: str = "png",
+    allow_npx: bool = False,
+    disable_browser_sandbox: bool = False,
 ) -> bool:
     """Convert Mermaid code to image using mermaid-cli."""
 
     with tempfile.NamedTemporaryFile(mode='w', suffix='.mmd', delete=False) as f:
         f.write(code)
         temp_mmd_path = f.name
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-        f.write('{"args":["--no-sandbox","--disable-setuid-sandbox"]}')
-        temp_puppeteer_config = f.name
+    temp_puppeteer_config = None
+    if disable_browser_sandbox:
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            f.write('{"args":["--no-sandbox","--disable-setuid-sandbox"]}')
+            temp_puppeteer_config = f.name
 
     try:
-        cmd = resolve_mmdc_command() + [
+        cmd = resolve_mmdc_command(allow_npx=allow_npx) + [
             '-i', temp_mmd_path,
             '-o', output_path,
             '-b', background,
             '-w', str(width),
-            '-p', temp_puppeteer_config,
         ]
+        if temp_puppeteer_config:
+            cmd.extend(['-p', temp_puppeteer_config])
 
         result = subprocess.run(
             cmd,
@@ -109,8 +116,9 @@ def convert_mermaid_to_image(
             if "Failed to launch the browser process" in result.stderr:
                 print(
                     "Hint: Mermaid CLI needs Chromium via Puppeteer. "
-                    "If you are in a restricted sandbox/CI environment, run this outside the sandbox "
-                    "or provide a Chrome/Puppeteer setup that can launch locally."
+                    "If you are in a restricted sandbox/CI environment, run this outside the sandbox, "
+                    "provide a Chrome/Puppeteer setup that can launch locally, or retry with "
+                    "--disable-browser-sandbox if you accept the security tradeoff."
                 )
             return False
 
@@ -122,11 +130,12 @@ def convert_mermaid_to_image(
     except FileNotFoundError:
         print("Error: mermaid-cli not found")
         print("Install with: npm install -g @mermaid-js/mermaid-cli")
+        print("Or rerun with: --allow-npx")
         return False
     finally:
         if os.path.exists(temp_mmd_path):
             os.unlink(temp_mmd_path)
-        if os.path.exists(temp_puppeteer_config):
+        if temp_puppeteer_config and os.path.exists(temp_puppeteer_config):
             os.unlink(temp_puppeteer_config)
 
 
@@ -155,6 +164,16 @@ def main():
     parser.add_argument('-f', '--format', default='png', choices=['png', 'svg'], help='Output format')
     parser.add_argument('--replace', action='store_true', help='Replace code blocks with images')
     parser.add_argument('--style', choices=get_available_styles(), help='Apply a built-in style theme')
+    parser.add_argument(
+        '--allow-npx',
+        action='store_true',
+        help='Allow falling back to npx @mermaid-js/mermaid-cli when no local mmdc is installed',
+    )
+    parser.add_argument(
+        '--disable-browser-sandbox',
+        action='store_true',
+        help='Pass --no-sandbox to Chromium via Puppeteer. Use only in restricted environments you trust.',
+    )
     parser.add_argument(
         '--chart-type',
         default='auto',
@@ -215,7 +234,9 @@ def main():
             output_path=str(output_path),
             width=args.width,
             background=background,
-            fmt=args.format
+            fmt=args.format,
+            allow_npx=args.allow_npx,
+            disable_browser_sandbox=args.disable_browser_sandbox,
         )
 
         if success:

@@ -4,12 +4,13 @@
     {
       "id": 1,
       "prompt": "帮我把这篇文章里的 mermaid 图表转成图片，要商务风格",
-      "expected_output": "PNG images generated with fresh-business style applied to all diagrams",
+      "expected_output": "PNG images generated with fresh-business style applied to all diagrams in the markdown file",
       "files": ["evals/files/sample-article.md"],
       "expectations": [
         "All mermaid diagrams are converted to PNG files",
         "The fresh-business style is applied (white/light background, blue accents)",
-        "Output images are saved to the output directory"
+        "Output images are saved to the output directory",
+        "Chart types are detected automatically for each diagram"
       ]
     },
     {
@@ -20,6 +21,7 @@
       "expectations": [
         "Diagram converted to PNG format",
         "Dark-tech style applied (dark background #1a1a2e, cyan/purple accents)",
+        "Flowchart type is detected automatically",
         "Image width is appropriate for web display"
       ]
     },
@@ -31,6 +33,7 @@
       "expectations": [
         "Output image width is exactly 900px",
         "Sequence diagram is fully visible and readable",
+        "Sequence diagram type is detected automatically",
         "PNG format suitable for WeChat"
       ]
     },
@@ -42,6 +45,7 @@
       "expectations": [
         "Hand-drawn style applied (warm paper background, Comic Sans MS font)",
         "Gantt chart bars and labels are visible",
+        "Gantt chart type is detected automatically",
         "Sketch-like appearance achieved"
       ]
     },
@@ -53,7 +57,19 @@
       "expectations": [
         "Output is SVG format not PNG",
         "Class diagram structure preserved",
+        "Class diagram type is detected automatically",
         "Vector format allows infinite scaling"
+      ]
+    },
+    {
+      "id": 6,
+      "prompt": "把这篇 markdown 里的 mermaid 图都转成图片，并把代码块替换成图片引用",
+      "expected_output": "Converted markdown file with Mermaid blocks replaced by image references",
+      "files": ["evals/files/sample-article.md"],
+      "expectations": [
+        "A converted markdown file is generated in the output directory",
+        "Mermaid code blocks are replaced with markdown image references",
+        "Image references use filenames that resolve within the same output directory"
       ]
     }
   ]

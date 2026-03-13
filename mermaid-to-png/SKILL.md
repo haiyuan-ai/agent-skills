@@ -39,12 +39,16 @@ python3 mermaid-to-png/scripts/convert.py <input-file> --style fresh-business --
 - `--replace`: emit `<input>_converted.md` with Mermaid blocks replaced by image links
 - `--output-dir <dir>`: store generated assets in a specific directory
 - `--chart-type auto|flowchart|sequence|gantt|class|state`: override type detection only if auto-detection is wrong
+- `--allow-npx`: allow a dynamic `npx` fallback only when local `mmdc` is unavailable
+- `--disable-browser-sandbox`: disable Chromium sandbox only in trusted restricted environments
 
 ## Notes
 
 - The converter auto-detects common Mermaid chart types.
 - When `--replace` is used, the converted Markdown references image filenames in the same output directory.
-- Prefer a locally installed `mmdc`; the script falls back to `npx @mermaid-js/mermaid-cli`.
+- Prefer a locally installed `mmdc`.
+- `npx` fallback is disabled by default and must be explicitly enabled with `--allow-npx`.
+- Browser sandbox disabling is also opt-in via `--disable-browser-sandbox`.
 
 ## Prerequisites
 
