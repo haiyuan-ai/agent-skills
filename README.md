@@ -11,6 +11,7 @@ A small collection of reusable skills for local coding and agent workflows.
 - `mermaid-to-png`: Converts Mermaid blocks in Markdown into styled PNG or SVG assets.
 - `modelscope-zimage-generator`: Generates images with ModelScope Z-Image models, including LoRA-based variants.
 - `obsidian-cli`: Operates an Obsidian vault through the official CLI for notes, search, tasks, and metadata.
+- `pandoc-converter`: Converts between Markdown, Word (.docx), and PDF via pandoc with CJK/English support.
 
 ## Layout
 
@@ -28,3 +29,4 @@ Current skill directories:
 - [`mermaid-to-png`](./mermaid-to-png)
 - [`modelscope-zimage-generator`](./modelscope-zimage-generator)
 - [`obsidian-cli`](./obsidian-cli)
+- [`pandoc-converter`](./pandoc-converter)

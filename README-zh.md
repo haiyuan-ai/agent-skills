@@ -11,6 +11,7 @@
 - `mermaid-to-png`：把 Markdown 里的 Mermaid 代码块转换为带样式的 PNG 或 SVG。
 - `modelscope-zimage-generator`：使用 ModelScope Z-Image 系列模型生成图片，支持 LoRA 变体。
 - `obsidian-cli`：通过官方 CLI 操作 Obsidian vault，处理笔记、搜索、任务和元数据。
+- `pandoc-converter`：基于 pandoc 在 Markdown、Word (.docx) 和 PDF 之间互转，开箱支持中英文。
 
 ## 目录结构
 
@@ -28,3 +29,4 @@
 - [`mermaid-to-png`](./mermaid-to-png)
 - [`modelscope-zimage-generator`](./modelscope-zimage-generator)
 - [`obsidian-cli`](./obsidian-cli)
+- [`pandoc-converter`](./pandoc-converter)
