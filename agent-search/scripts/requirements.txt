@@ -1,1 +1,2 @@
-aiohttp>=3.9.0
+# Pinned for reproducibility. Update with: pip install aiohttp==<new> && update this file.
+aiohttp==3.13.3

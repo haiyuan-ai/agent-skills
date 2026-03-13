@@ -84,13 +84,18 @@ def domain_matches_subject(domain: str, subject: str) -> bool:
 
 
 def matches_query_brand(result: dict, query_or_subject: str) -> bool:
+    """Check if result matches the query brand using only URL and title.
+
+    Snippet text is untrusted third-party content and must not be used
+    for brand-matching decisions to prevent injection-based manipulation.
+    """
     subject = get_status_query_subject(query_or_subject).lower().strip()
     if not subject:
         return False
     title = (result.get("title", "") or "").lower()
-    text = (result.get("text", "") or "").lower()
+    url = normalize_domain(result.get("url", "")).lower()
     subject_slug = re.sub(r"[^a-z0-9\u4e00-\u9fff]+", "", subject)
-    haystack = " ".join([title, text])
+    haystack = " ".join([title, url])
     haystack_slug = re.sub(r"[^a-z0-9\u4e00-\u9fff]+", "", haystack)
     return subject in haystack or (subject_slug and subject_slug in haystack_slug)
 

@@ -29,9 +29,11 @@ def score_official_domain_candidate(subject: str, result: Dict) -> float:
 
     subject_lower = subject.lower().strip()
     title = (result.get("title", "") or "").lower()
-    text = (result.get("text", "") or "").lower()
     url = (result.get("url", "") or "").lower()
-    haystack = " ".join([title, text, url])
+    # Only use URL and title for official domain scoring.
+    # Snippet text is untrusted third-party content and must not
+    # influence which domains are considered "official".
+    haystack = " ".join([title, url])
 
     if subject_lower not in haystack:
         return 0.0
@@ -58,8 +60,6 @@ def score_official_domain_candidate(subject: str, result: Dict) -> float:
         score += 0.4
     if "github.com/" in url:
         score += 0.5
-    if any(token in text for token in ["copyright", "版权所有", "联系我们", "about us", "company", "产品", "解决方案"]):
-        score += 0.3
 
     return score
 
@@ -359,8 +359,7 @@ def _status_result_type(result: Dict, query: str) -> str:
     role = classify_site_role(result, query=query)
     title = (result.get("title", "") or "").lower()
     url = (result.get("url", "") or "").lower()
-    text = (result.get("text", "") or "").lower()
-    haystack = " ".join([title, url, text])
+    haystack = " ".join([title, url])
 
     event_tokens = ["发布会", "大会", "峰会", "conference", "summit", "event", "webinar", "launch event"]
     review_tokens = ["评测", "评价", "怎么样", "review", "faq", "问答"]
