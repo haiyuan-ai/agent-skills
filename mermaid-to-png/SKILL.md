@@ -1,6 +1,6 @@
 ---
 name: mermaid-to-png
-description: Convert Mermaid code blocks in Markdown into polished PNG or SVG images. Use when users ask to export Mermaid diagrams, replace Mermaid blocks with images, restyle diagrams for articles/slides/WeChat, or make Mermaid charts more presentation-ready. Supports built-in themes `dark-tech`, `fresh-business`, `hand-drawn`, and `gradient-modern`.
+description: Convert Mermaid code blocks in Markdown to styled PNG or SVG images. Use for Mermaid export, image replacement, or visual polish. Supports `dark-tech`, `fresh-business`, `hand-drawn`, and `gradient-modern`.
 ---
 
 # mermaid-to-png
