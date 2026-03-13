@@ -61,6 +61,9 @@ obsidian recents
 
 ## Sync
 
+Safety note:
+- `sync:restore` mutates vault state and requires explicit user intent for that exact restore action.
+
 ### Sync Control
 
 ```bash
@@ -98,6 +101,10 @@ obsidian sync:deleted
 
 ## Publish
 
+Safety note:
+- `publish:*` affects publicly exposed content and is never a default action.
+- Only use it when the user explicitly asks to inspect or change Obsidian Publish state.
+
 ```bash
 # Get publish site info
 obsidian publish:site
@@ -124,6 +131,9 @@ obsidian publish:open file="filename"
 ---
 
 ## File History
+
+Safety note:
+- `history:restore` mutates file state and requires explicit user intent for that exact restore action.
 
 ### Version Diff
 
@@ -167,6 +177,10 @@ The following categories are intentionally not part of this skill because they e
 ---
 
 ## Web Viewer
+
+Safety note:
+- `obsidian web ...` opens external URLs and is outside normal local-vault workflows.
+- Only use it if the user explicitly asks to open a web page inside Obsidian.
 
 ```bash
 # Open web URL

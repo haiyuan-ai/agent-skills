@@ -3,8 +3,9 @@
 Obsidian CLI 插件和主题状态参考。
 
 安全边界：
-- This skill only allows inspection of already installed plugins/themes and enable or disable actions explicitly requested by the user.
-- Do not install, uninstall, or download plugins, themes, or snippets through the agent.
+- This skill is read-only for plugins, themes, and snippets.
+- Do not install, uninstall, enable, disable, reload, download, or switch plugins, themes, or snippets through the agent.
+- If the user wants plugin or theme changes, ask them to perform the change manually in Obsidian.
 
 ---
 
@@ -33,30 +34,15 @@ obsidian plugins:enabled
 obsidian plugin id="pluginid"
 ```
 
-### Enable/Disable Plugins
+### Mutating Commands Are Out of Scope
+
+Do not use:
 
 ```bash
-# Enable plugin
 obsidian plugin:enable id="pluginid"
-
-# Disable plugin
 obsidian plugin:disable id="pluginid"
-```
-
-### Reload Plugin (Development)
-
-```bash
-# Reload plugin under development
 obsidian plugin:reload id="pluginid"
-```
-
-### Toggle Restricted Mode
-
-```bash
-# Enable restricted mode
 obsidian plugins:restrict on
-
-# Disable restricted mode
 obsidian plugins:restrict off
 ```
 
@@ -81,13 +67,6 @@ obsidian themes versions
 obsidian theme
 ```
 
-### Set Theme
-
-```bash
-# Set active theme
-obsidian theme:set name="themename"
-```
-
 ### CSS Snippets
 
 ```bash
@@ -97,35 +76,25 @@ obsidian snippets
 # List enabled snippets
 obsidian snippets:enabled
 
-# Enable snippet
-obsidian snippet:enable name="snippetname"
-
-# Disable snippet
-obsidian snippet:disable name="snippetname"
+# Do not mutate snippet state with this skill
 ```
 
 ---
 
 ## Usage Examples
 
-### Plugin Development Workflow
+### Inspect Plugin State
 
 ```bash
-# Reload plugin under development
-obsidian plugin:reload id="my-plugin"
-
-# View plugin info
+obsidian plugins:enabled
 obsidian plugin id="my-plugin"
 ```
 
-### Theme Development
+### Inspect Theme State
 
 ```bash
-# View enabled snippets
+obsidian theme
 obsidian snippets:enabled
-
-# Enable CSS snippet
-obsidian snippet:enable name="custom.css"
 ```
 
 ---
@@ -173,8 +142,8 @@ Ensure you're using the correct plugin ID (not display name). Plugin IDs are usu
 ### Theme Not Applying
 
 1. Check if theme is installed: `obsidian themes`
-2. Enable the theme: `obsidian theme:set name="ThemeName"`
-3. Reload Obsidian if needed: `obsidian reload`
+2. Check current theme: `obsidian theme`
+3. Ask the user to change it manually in Obsidian
 
 ### Installing New Plugins or Themes
 
