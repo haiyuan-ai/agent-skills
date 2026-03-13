@@ -1,7 +1,7 @@
 """
 Gemini Embedding API 封装
 
-使用 Google Gemini text-embedding-004 模型生成文本向量。
+使用 Google Gemini gemini-embedding-001 模型生成文本向量。
 同步调用（urllib），适合缓存场景的低频使用。
 """
 import json
@@ -30,7 +30,7 @@ def get_embedding(
         model: 模型名称
 
     Returns:
-        浮点数列表（768维），失败返回 None
+        浮点数列表（3072维），失败返回 None
     """
     url = f"{API_BASE}/models/{model}:embedContent?key={api_key}"
     payload = {
