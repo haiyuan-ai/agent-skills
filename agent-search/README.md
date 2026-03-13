@@ -15,20 +15,42 @@ Deep, structured web search for agents that support `SKILL.md`.
 
 ## Search Strategy
 
-Agent Search detects query intent automatically and uses different strategies for different scenarios:
+Agent Search detects query intent automatically and uses different strategies for different scenarios.
 
-| Intent Type | Signals | Expansion Strategy | Search Sources | Cache TTL |
-|------------|---------|--------------------|----------------|-----------|
-| **News** | Latest updates, developments, ongoing situations | Expand to 3 queries with time constraints | Tavily + Brave | 1 hour |
-| **Troubleshooting** | Errors, failures, not working, broken behavior | Expand to 2-3 queries with solution and GitHub terms | Tavily + Brave | 3 days |
-| **Comparison** | vs, compare, differences, which is better | Expand to 3 queries with pros, cons, and reviews | Tavily + Brave | 3 days |
-| **Version / Release** | Version, release notes, changelog | Expand to 2 queries with documentation terms | Mostly Tavily | 1 day |
-| **General** | Everything else | Expand to 2 queries | Mostly Tavily | 1 day |
+### Intent Detection
+
+Actual intent types in the code:
+
+| Intent Type | Typical Signals | Max Queries | Cache TTL |
+|------------|-----------------|-------------|-----------|
+| **Release** | `version`, `docs`, `documentation`, `release notes`, `changelog`, `版本`, `文档`, `发布说明`, `更新日志` | 4 | 6 hours |
+| **Troubleshooting** | `error`, `failed`, `cannot`, `issue`, `crash`, `not working`, `报错`, `错误`, `异常`, `失败`, `无法`, `排查` | 2-3 | 3 days |
+| **Comparison** | `vs`, `compare`, `difference between`, `which is better`, `对比`, `区别`, `哪个好`, `怎么选` | 3 | 3 days |
+| **News** | `latest news`, `breaking news`, `recent developments`, `最新消息`, `最新进展`, `局势更新`, `最新动态` | 3 | 1 hour |
+| **Status** | `how is`, `what's new`, `current status`, `recent updates`, `怎么样`, `近况`, `现状`, `最近`, `动态` | 4 | 6 hours |
+| **General** | Everything else | 2 | 1 day |
+
+Intent priority is fixed in code:
+`release -> troubleshooting -> comparison -> news -> status -> general`
+
+This matters for ambiguous queries like "latest Node.js version" or "Product X latest updates", where the earlier matching intent wins.
+
+### Expansion and Routing
+
+**Expansion behavior by intent:**
+- `release`: adds release-note, changelog, and official-doc queries
+- `troubleshooting`: adds fix / solution / GitHub issue queries
+- `comparison`: adds pros-and-cons and comparison queries
+- `news`: adds fresher update and breaking-news style queries
+- `status`: adds official-site, product-update, changelog, and company-update queries
+- `general`: uses tutorial / examples / review style expansion
 
 **Search source routing:**
-- The first round uses Tavily by default as the primary engine
-- For news, troubleshooting, and version-related queries, Brave is used as a supplemental source
-- Exa semantic search is used as a fallback when result quality is insufficient or when `mode=deep`
+- First-pass search prefers Tavily when available
+- `news` and `troubleshooting` use Brave as a stronger supplement on expanded queries
+- `release` and `status` are treated as freshness-sensitive and query all available configured sources on each round
+- Exa semantic search is used as a fallback when result quality is insufficient, and always participates in `mode=deep` if configured
+- `status` queries may add extra discovery queries such as official-site lookups and site-specific follow-up queries when the first results look stale
 
 **Returned content policy:**
 - `mode=quick`: No query expansion, returns only safe excerpts from search snippets
@@ -170,6 +192,7 @@ Cache management:
 ```json
 {
   "query": "original query",
+  "intent": "status",
   "search_queries": ["expanded query 1", "expanded query 2"],
   "sources_used": ["exa", "brave", "tavily"],
   "total_found": 25,
@@ -186,9 +209,24 @@ Cache management:
       "content_trust": "untrusted-sanitized",
       "quality_score": 0.92
     }
-  ]
+  ],
+  "status_summary": {
+    "as_of_date": "2026-03-13",
+    "latest_official_update": {
+      "title": "...",
+      "url": "...",
+      "effective_published_date": "2026-03-10",
+      "site_role": "official",
+      "status_result_type": "company_update",
+      "source": "tavily",
+      "final_score": 0.91
+    },
+    "highlights": ["最近官方动态: 2026-03-10 | ..."]
+  }
 }
 ```
+
+`status_summary` is returned only for `status` intent queries.
 
 ## Directory Layout
 

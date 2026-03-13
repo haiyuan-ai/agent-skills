@@ -15,20 +15,42 @@
 
 ## 搜索策略
 
-Agent Search 自动识别查询意图，针对不同场景采用不同策略：
+Agent Search 会自动识别查询意图，并按不同意图使用不同搜索策略。
 
-| 意图类型 | 识别特征 | 扩展策略 | 搜索源 | 缓存 TTL |
-|---------|---------|---------|--------|---------|
-| **新闻** | 最新消息、动态、局势 | 扩展 3 个查询，加时间限定 | Tavily + Brave | 1 小时 |
-| **故障排查** | 报错、错误、无法、失败 | 扩展 2-3 个查询，加解决方案/GitHub | Tavily + Brave | 3 天 |
-| **对比** | vs、对比、区别、哪个好 | 扩展 3 个查询，加优缺点/评测 | Tavily + Brave | 3 天 |
-| **版本/发布** | 版本、发布说明、changelog | 扩展 2 个查询，加文档关键词 | Tavily 为主 | 1 天 |
-| **通用** | 其他查询 | 扩展 2 个查询 | Tavily 为主 | 1 天 |
+### 意图识别
+
+当前代码里的真实意图类型如下：
+
+| 意图类型 | 典型信号 | 最大查询数 | 缓存 TTL |
+|---------|---------|-----------|---------|
+| **发布 / 文档** | `version`、`docs`、`release notes`、`changelog`、`版本`、`文档`、`发布说明`、`更新日志` | 4 | 6 小时 |
+| **故障排查** | `error`、`failed`、`issue`、`crash`、`not working`、`报错`、`错误`、`异常`、`失败`、`无法`、`排查` | 2-3 | 3 天 |
+| **对比** | `vs`、`compare`、`difference between`、`which is better`、`对比`、`区别`、`哪个好`、`怎么选` | 3 | 3 天 |
+| **新闻** | `latest news`、`breaking news`、`recent developments`、`最新消息`、`最新进展`、`局势更新`、`最新动态` | 3 | 1 小时 |
+| **近况 / 状态** | `how is`、`what's new`、`current status`、`recent updates`、`怎么样`、`近况`、`现状`、`最近`、`动态` | 4 | 6 小时 |
+| **通用** | 其他查询 | 2 | 1 天 |
+
+代码中的意图优先级固定为：
+`release -> troubleshooting -> comparison -> news -> status -> general`
+
+这意味着一个查询如果同时命中多个类别，会按这个顺序决定最终意图。
+
+### 扩展与路由
+
+**按意图的查询扩展：**
+- `release`：补充 release notes、changelog、official docs
+- `troubleshooting`：补充 fix / solution / GitHub issue
+- `comparison`：补充 pros and cons、comparison
+- `news`：补充最新动态、breaking news 一类查询
+- `status`：补充官网、产品更新、changelog、公司动态
+- `general`：补充 tutorial、examples、review
 
 **搜索源路由逻辑：**
-- 首轮查询默认使用 Tavily 主引擎
-- 新闻/故障排查/版本类查询，Brave 作为补充源
-- Exa 语义搜索作为兜底，在结果质量不足或 `mode=deep` 时启用
+- 首轮搜索优先使用 Tavily（如果已配置）
+- `news` 和 `troubleshooting` 在扩展查询阶段更依赖 Brave 补充
+- `release` 和 `status` 属于 freshness-sensitive 查询，每轮会尽量同时利用所有已配置搜索源
+- Exa 语义搜索在结果质量不足时作为兜底；`mode=deep` 下如果配置了 Exa，会稳定参与
+- `status` 查询如果首轮结果看起来过旧，还会追加官网发现查询和 `site:` 定向补充查询
 
 **返回内容策略：**
 - `mode=quick`: 不扩展查询，只返回搜索摘要安全摘录
@@ -170,6 +192,7 @@ result = await searcher.search("Python 异步编程")
 ```json
 {
   "query": "原始查询",
+  "intent": "status",
   "search_queries": ["扩展查询1", "扩展查询2"],
   "sources_used": ["exa", "brave", "tavily"],
   "total_found": 25,
@@ -186,9 +209,24 @@ result = await searcher.search("Python 异步编程")
       "content_trust": "untrusted-sanitized",
       "quality_score": 0.92
     }
-  ]
+  ],
+  "status_summary": {
+    "as_of_date": "2026-03-13",
+    "latest_official_update": {
+      "title": "...",
+      "url": "...",
+      "effective_published_date": "2026-03-10",
+      "site_role": "official",
+      "status_result_type": "company_update",
+      "source": "tavily",
+      "final_score": 0.91
+    },
+    "highlights": ["最近官方动态: 2026-03-10 | ..."]
+  }
 }
 ```
+
+`status_summary` 只会在 `status` 意图查询中返回。
 
 ## 目录
 
