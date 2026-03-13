@@ -1,203 +1,181 @@
 ---
 name: ai-vibe-detector
 description: >-
-  检测文本的 AI 生成特征并去 AI 化。触发词：检查 AI 味/检测 AI 味/分析 AI 味/AI 味道/AI
-  味重/去 AI 味/改得像人写的/是否 AI 生成/朱雀检测。Make sure to use this skill
-  whenever the user: asks if text sounds AI-generated, wants to humanize content,
-  asks about writing authenticity, wants to bypass AI detectors (如朱雀), 
-  or needs to make text sound more natural and personal.
+  分析文本中的 AI 风格信号、误判风险和自然化改写方向。触发词：检查 AI 味/检测 AI 味/分析 AI 味/AI 味道/AI 味重/去 AI 味/改得像人写的/是否像 AI 写的/朱雀检测。Use when the user wants to assess whether text sounds AI-generated, identify AI-style writing signals, humanize wording, or understand detector risk. Do not use this skill to promise bypassing or defeating AI detectors.
 ---
 
 # AI Vibe Detector
 
-深度分析文本的 AI 生成特征，从多个维度评估文本的"人味"程度。
+分析文本中的 AI 风格信号、AI 润色痕迹、误判风险，并提供自然化改写建议。
 
 ## When to Use This Skill
 
 Trigger this skill when the user:
 - 要求检查文本是否像 AI 写的
-- 问"这篇文章 AI 味重吗"
-- 需要去 AI 化改写
-- 想要绕过 AI 检测器（如朱雀）
-- 想要让文本更有人味、更自然
-- 提到"检查 AI 味"、"检测 AI 味"等触发词
+- 问“这篇文章 AI 味重吗”
+- 需要去 AI 化或改得更自然
+- 想知道某段文字会不会被 AI 检测器误伤
+- 提到“朱雀检测”“AI 检测风险”等平台或检测场景
+
+Do not frame the task as:
+- 保证通过 AI 检测
+- 绕过、欺骗、击败某个检测器
+- 证明文本一定是 AI 或一定是人写
 
 ## Core Workflow
 
-1. **获取待检测文本** - 用户粘贴文本或指定文件路径
-2. **多维度分析** - 从 6 个维度检测 AI 特征
-3. **输出评分** - 给出整体 AI 味评分（0-10）
-4. **逐段标注** - 标注问题位置和关键词
-5. **提供改写建议** - 给出具体的去 AI 化改写示例
+1. 获取待分析文本，先区分正文、引用、代码、命令、提示词和模板内容。
+2. 判断文本类型：
+- 叙述 / 观点文
+- 技术说明 / 文档
+- 公告 / 营销文
+- 学术 / 正式写作
+- 混合内容
+3. 从四层信号分析文本：
+- 高置信结构信号
+- 中置信语言信号
+- 低置信平台启发式
+- 反误判信号
+4. 输出结论标签、置信度、误判风险，而不是只给一个总分。
+5. 如果用户要求改写，优先做“降低模板感、增加具体性、保留原意”的自然化修改。
 
 ## Output Format
 
-### 整体评分
+Use this output structure by default:
 
+```text
+结论：更像 AI 风格化写作 / 更像 AI 润色痕迹 / 更像人工原生写作 / 证据不足
+置信度：低 / 中 / 高
+误判风险：低 / 中 / 高
+
+主要依据：
+1. ...
+2. ...
+3. ...
+
+反误判因素：
+1. ...
+2. ...
+
+如果要改：
+- 优先改哪些位置
+- 为什么这些位置最像模板化表达
+- 给 1-3 个局部改写示例
 ```
-AI 味评分：X/10
-- 0-3 分：人味很浓，几乎看不出 AI 痕迹
-- 4-6 分：人味为主，偶有 AI 特征
-- 7-10 分：AI 味明显，需要改写
-```
 
-### 逐段分析
+If the user explicitly wants a score, use a secondary score only:
+- `AI 风格风险：0-10`
+- Always pair it with confidence and false-positive risk
+- Never present the score as proof of authorship
 
-对每段文字进行：
-- AI 味评分（0-10）
-- 问题位置标注（行号、关键词）
-- 具体问题说明
-- 修改建议
+## Analysis Framework
 
-### 问题汇总
+### 1. High-Confidence Structural Signals
 
-按优先级列出所有 AI 味问题：
-- 高优先级（必须改）
-- 中优先级（建议改）
-- 低优先级（可选）
+Look for:
+- 模板化开头和结尾反复出现
+- 段落长度和节奏异常均匀
+- “定义 -> 展开 -> 总结”结构过于稳定
+- 每段都像完成一个标准小节，没有自然跳跃
+- 大量总结句、收束句、过度照顾读者理解
 
-### 朱雀专项检测（如适用）
+These signals are stronger when they appear together.
 
-如用户提到朱雀检测，额外输出：
-- 连接词密度分析
-- 结构化程度检测
-- 括号使用说明标注
-- 段落规整度分析
+### 2. Medium-Confidence Language Signals
 
-## Detection Dimensions
+Look for:
+- 连接词密度偏高
+- 空泛抽象名词偏多，具体信息偏少
+- 情绪过稳、判断过平滑
+- 同义改写很多，但真实信息增量很少
+- 明显“像在写一篇合格答案”而不是“像在表达一个具体的人”
 
-### 1. 句式结构分析
-- **三段式法则**：检测"定义 - 说明 - 总结"的标准化结构
-- **过度结构化**：分析是否过度使用"首先、其次、最后"
-- **段落长度**：AI 倾向用均匀长度的段落
-- **句子复杂度**：AI 句子结构往往过于工整
+### 3. Low-Confidence Platform Heuristics
 
-### 2. 词汇特征分析
-- **连接词频率**：检测"然而"、"此外"、"值得注意的是"、"总而言之"、"与此同时"、"不是...而是..."
-- **量化词汇**：AI 喜欢"大大"、"显著"、"广泛"、"全面"
-- **AI 特有词汇**："赋能"、"抓手"、"闭环"、"赛道"、"矩阵"、"底层逻辑"
-- **禁用词检测**：小红书禁用词（绝绝子、yyds、无敌、巨好用）
+These can raise detector risk but are not reliable authorship evidence:
+- 序号、列表、括号、破折号
+- 段末标点高度一致
+- 某些连接词或总结词
+- 口语化不足或过度工整
 
-### 3. 主语和语气分析
-- **主语使用**："我们"、"让我们" vs "我"、"我的"
-- **语气判断**：客观理性 vs 有情绪、自嘲、个人化
-- **祈使句比例**：AI 倾向用"建议"、"应该"、"必须"
-- **疑问句缺失**：AI 很少用反问、自问
+Use these only as weak indicators.
 
-### 4. 具体性和真实性
-- **时间细节**：是否有具体时间（20 号晚上、1 月 21 日）
-- **地点细节**：是否有具体地点、场景
-- **个人经历**：是否有真实故事、具体案例
-- **数据精确度**：AI 用"大约、大概"，真人用"1 分 52 秒"
+### 4. False-Positive Protection
 
-### 5. 网络用语和口语
-- **网络用语使用**：是否使用网络流行语
-- **使用自然度**：用力过猛 vs 自然融入
-- **口语化表达**："好家伙"、"新坑"、"绝了"等
+Before calling something “AI 味重”, check whether the style is explained by:
+- 技术文档、SOP、教程、FAQ
+- 学术 / 公文 / 正式说明文体
+- 引用、法规、公告、品牌规范
+- 代码、命令、表格、清单
+- 用户给模型的 prompt，而不是最终成文
+- 人写后被工具轻度润色，而不是纯 AI 生成
 
-### 6. 句子开头模式
-- **句首重复**：AI 倾向用相似的句式开头
-- **被动语态**：过度使用被动语态
-- **名词化**：过度把动词变成名词
+## Decision Labels
 
-## Zhuque AI Detection
+Prefer one of these labels:
 
-朱雀 AI 检测是另一个专业的 AI 检测工具，需特别关注以下特征：
+### 更像人工原生写作
+- 有真实选择痕迹
+- 有非模板化取舍
+- 具体细节和节奏变化自然
 
-### 朱雀重点检测的连接词（高优先级）
+### 更像 AI 风格化写作
+- 模板感强
+- 结构和语气过稳
+- 抽象总结多于具体经验
 
-以下连接词在正常文本中密度很低，如果每 3-4 句话就出现一个，判定为 AI：
-- **结构连接词**：首先、其次、再次、然后、此外、总之、总而言之
-- **转折连接词**：然而、但是、其实、实际上
-- **补充连接词**：还有啊、其实啊、值得注意的是
-- **时态连接词**：随着、发展、在某某时代、在某某今天
-- **总结连接词**：综上所述、由此可见、可以说
+### 更像 AI 润色痕迹
+- 原始观点可能是人的
+- 但措辞被统一抛光、平滑、标准化
+- 常见于“人写初稿 + AI 改顺”场景
 
-### 朱雀禁用特征（必检项）
+### 证据不足
+- 文本太短
+- 类型本身高度模板化
+- 引用/代码/清单占比太高
 
-1. **序号和列表**
-   - 禁止出现：一、二、三，以及阿拉伯数字 1、2、3 等
-   - 检测：真人写观点时很少用序号列举
+## Zhuque and Similar Detector Risk
 
-2. **括号和说明性标记**
-   - 禁止任何括号（圆括号、方括号等）及说明性标记
-   - 检测：真人很少用括号做补充说明
+When the user mentions 朱雀或类似检测器:
+- Explain that these tools often react to highly regular structure, overused transitions, and polished-but-generic prose
+- Treat platform-specific rules as heuristics, not facts
+- Do not say “这样改就一定能过”
+- Say “可能降低被判为模板化写作的风险”，not “保证通过检测”
 
-3. **破折号使用**
-   - 频繁使用破折号进行补充说明
-   - 示例："这个功能——不仅仅是功能的扩展——代表了..."
-   - 检测：自然写作中破折号使用很少，AI 则偏爱使用
+For this case, add:
+- 平台风险信号
+- 误判风险
+- 更稳妥的自然化建议
 
-4. **段落结尾标点**
-   - 真人写作风格：段落结尾不使用标点符号
-   - AI 写作特征：每个段落都有句号结尾
-   - 检测：观察段落是否都以标点结束
+## Rewrite Guidance
 
-### 反朱雀核心策略（人味信号）
+If the user asks to humanize the text:
+- 优先删“空泛总结”和“万能连接词”
+- 保留原文观点，不靠随机口语词堆砌
+- 增加可验证的细节、具体对象、具体动作
+- 允许节奏不完全对称
+- 局部加入真实视角，但不要凭空捏造经历
 
-以下特征是强人味信号，用来对抗朱雀检测：
-
-1. **思维过程真实化**
-   - 展现真实的思考过程，包括犹豫、转折、突然想到
-   - 示例："对了，还有个事情想说..."
-   - 在某处提出问题后自己回答
-   - 分享个人小故事或感受
-
-2. **表达不完美化**
-   - 段落长短不一，有时可能就一句话成段
-   - 口语化表达和不太规范的句子
-   - 某些观点可能会多说几句，而不是面面俱到
-   - 用自然的方式过渡，而不是明显的结构词
-
-3. **情感波动自然化**
-   - 加入自己的情感和看法，有时甚至有点主观
-   - 和读者互动，问问题，引发思考
-   - 该感叹时就感叹，但不要太夸张
-   - 整体看起来随性自然，不像是精心设计的
-
-4. **视角切换自然化**
-   - 讲述个人经历时使用"我"
-   - 分享共同经验时使用"我们"
-   - 直接对读者建议时使用"你"
-   - 讨论普遍现象时可使用第三人称
+Avoid:
+- 强行加“我觉得”“说真的”“绝了”之类口头禅
+- 为了“像人”故意制造病句
+- 凭空添加个人经历、时间、地点
+- 面向某个检测器定向调参式改写
 
 ## Resources
 
-详细检测标准参考：
-- `references/wikipedia-ai-features.md` - 维基百科 AI 写作特征综合指南
-- `references/zhuque-detection.md` - 朱雀 AI 检测详细指南和反制策略
+Use references selectively:
+- `references/official-detector-landscape.md` - Official product positioning and limits of major AI detectors
+- `references/research-limitations.md` - Research consensus on detector limits and false positives
+- `references/platform-heuristics.md` - Practical but weak platform-specific heuristics
+- `references/wikipedia-ai-features.md` - Legacy style-signal checklist
+- `references/zhuque-detection.md` - Legacy Zhuque-oriented heuristics, use cautiously
 
-## Troubleshooting
+## Output Principles
 
-### 误判技术定义为 AI 味
-- **问题**：将技术定义引言误判为 AI 特征
-- **解决**：技术定义引入是合理的，不应判为 AI 味
-
-### 误判 prompt 指令为正文
-- **问题**：将"我是一个工作 20 年..."这种给 AI 的指令判为 AI 味
-- **解决**：区分 prompt 指令和文章正文
-
-### 误判代码和命令
-- **问题**：将标准化的代码、命令判为 AI 特征
-- **解决**：技术命令本身就是标准化的，不应判为 AI 味
-
-### 误判引用内容
-- **问题**：将引用官方文档或标准判为 AI 味
-- **解决**：引用内容本身是标准化表达，不应判为 AI 味
-
-## 检测逻辑
-
-AI 味 = (标准化句式 × 连接词频率) + (缺乏个人细节 × 缺乏情绪表达) - (个人经历 × 口语化 × 具体细节)
-
-## 输出原则
-
-1. **不要只给分数** - 要给出具体位置和原因
-2. **区分正文和 prompt** - 区分是文章正文还是给 AI 的指令
-3. **提供修改建议** - 给出具体的改写示例
-4. **避免误判** - 技术定义、引用内容不要误判为 AI 味
-5. **鼓励个人化表达** - 强调个人经历和口语化表达的价值
-
-## 参考标准
-
-- 维基百科"AI 写作特征"综合指南
-- 反朱雀 AI 检测提示词（姚金刚 V2.0）
+1. 不把风格信号说成作者身份证明
+2. 不承诺通过任何检测器
+3. 先讲证据，再讲结论
+4. 必须给误判风险提示
+5. 自然化改写优先“减模板感”，不是“演人设”
+6. 不提供面向特定检测器的定向规避建议
