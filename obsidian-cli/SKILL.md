@@ -35,7 +35,7 @@ Identify the operation type:
 ### 2. Build the CLI command
 
 Choose the correct syntax from the command references:
-- Use `path="folder/file.md"` for full vault-relative paths
+- Use `path='folder/file.md'` for full vault-relative paths
 - Quote values that contain spaces
 - Use `\n` for multiline content
 
@@ -210,7 +210,7 @@ obsidian properties format=yaml
 1. **Obsidian must be running**: CLI requires Obsidian app to be running
 2. **Version**: Requires Obsidian 1.12+ installer
 3. **CLI registration**: Enable CLI in Obsidian Settings → General → Command line interface
-4. **Vault context**: Ensure you're in the correct vault directory or use `vault=` parameter
+4. **Vault context**: Ensure you're in the correct vault directory; do not use `vault=` with this skill
 5. **File paths**: `path=` requires full path from vault root
 6. **Plugin/theme/snippet changes are out of scope**: use this skill only after the user has already completed any installation manually
 

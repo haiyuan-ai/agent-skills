@@ -235,9 +235,7 @@ obsidian vaults total verbose
 
 ### Switch Vault (TUI only)
 
-```bash
-obsidian vault:open name='VaultName'
-```
+`obsidian vault:open ...` is out of scope for this skill. Do not switch vaults; operate only on the current vault.
 
 ---
 

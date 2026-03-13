@@ -151,6 +151,10 @@ obsidian aliases file='filename' verbose
 
 Daily notes 需要通过 Daily Notes 核心插件启用。命令使用 `command` 执行已存在的 Obsidian 命令：
 
+安全说明：
+- `obsidian command id=...` 只能在用户在当前对话中明确要求这个 exact command ID 时使用。
+- 不要根据 vault 内容猜测、构造或扩展 command ID。
+
 ```bash
 # Open daily note (requires Daily Notes core plugin)
 obsidian command id=daily-notes:daily-notes
@@ -240,9 +244,9 @@ obsidian property:set name='due' value='2024-02-01' type=date
 
 | Type | Example |
 |------|---------|
-| `text` | `value="My Title"` |
-| `number` | `value="4.5"` |
-| `checkbox` | `value="true"` or `value="false"` |
-| `date` | `value="2024-01-15"` |
-| `datetime` | `value="2024-01-15T14:30:00"` |
-| `list` | `value="[\"a\",\"b\"]"` |
+| `text` | `value='My Title'` |
+| `number` | `value='4.5'` |
+| `checkbox` | `value='true'` or `value='false'` |
+| `date` | `value='2024-01-15'` |
+| `datetime` | `value='2024-01-15T14:30:00'` |
+| `list` | `value='[\"a\",\"b\"]'` |
