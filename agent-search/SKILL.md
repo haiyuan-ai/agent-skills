@@ -1,13 +1,13 @@
 ---
 name: agent-search
 description: |
-  **Intelligent search tool - USE IMMEDIATELY when user needs external info!**
+  Web search for current or external info.
 
-  **Trigger:** search verbs ("search"/"look up"/"查"/"搜"/"google"), real-time queries ("latest"/"news"/"更新"/"进展"), research/comparison ("调研"/"对比"/"vs"), proper nouns (names/companies/products)
+  Trigger: search verbs ("search", "look up", "查", "搜", "google"), real-time queries ("latest", "news", "更新", "进展"), research/comparison ("调研", "对比", "vs"), proper nouns (people, companies, products).
 
-  **Skip:** local operations (git/refactoring); specific tool already mentioned; general knowledge
+  Skip: local operations, explicit use of another search tool, and general knowledge.
 
-  **Features:** Multi-source search (Tavily+Brave+Exa), JSON output via `--json`
+  Output: JSON via `--json`.
 
 version: 0.6.0
 author: Haiyuan AI
@@ -44,17 +44,18 @@ Use `quick` when:
 
 ## Query Intent Detection
 
-Auto-detects query intent, affects expansion strategy and cache TTL:
+Auto-detects query intent, affects expansion strategy, source routing, and cache TTL:
 
 | Intent | Keywords | Strategy |
 |--------|----------|----------|
-| **News** | latest news, updates, "最新消息", "动态" | Less expansion, short cache (1h) |
-| **Troubleshooting** | error, crash, "报错", "错误" | Add solution keywords, long cache (3d) |
-| **Comparison** | vs, compare, "对比", "区别" | Add pros/cons keywords |
-| **Release/Docs** | version, changelog, "版本", "发布说明" | Add docs keywords |
+| **Release/Docs** | version, changelog, docs, "版本", "发布说明", "文档" | Add docs / release-note keywords; prefer fresher official sources |
+| **Troubleshooting** | error, crash, "报错", "错误" | Add fix / solution / GitHub issue keywords |
+| **Comparison** | vs, compare, "对比", "区别" | Add pros/cons and selection keywords |
+| **News** | latest news, breaking news, "最新消息", "最新进展" | Use fewer, fresher queries and news-oriented routing |
+| **Status** | current status, recent updates, "最近怎么样", "最新动态" | Expand official-site and recent-update queries |
 | **General** | default | Standard expansion |
 
-Intent priority: release → troubleshooting → news → comparison → general
+Intent priority: release → troubleshooting → comparison → news → status → general
 
 ## Agent Usage Guidelines
 

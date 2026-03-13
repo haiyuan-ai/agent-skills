@@ -57,10 +57,10 @@ mkdir -p ~/.agents/haiyuan-ai
 
 # 编辑配置文件
 cat > ~/.agents/haiyuan-ai/.env << 'EOF'
-TAVILY_API_KEY=”your-tavily-api-key”
-BRAVE_API_KEY=”your-brave-api-key”
-EXA_API_KEY=”your-exa-api-key”
-GEMINI_API_KEY=”your-gemini-api-key”
+TAVILY_API_KEY="your-tavily-api-key"
+BRAVE_API_KEY="your-brave-api-key"
+EXA_API_KEY="your-exa-api-key"
+GEMINI_API_KEY="your-gemini-api-key"
 EOF
 ```
 
@@ -141,10 +141,11 @@ result = await searcher.search("Python 异步编程")
 - 存储位置: `~/.agents/haiyuan-ai/agent_search_cache/`
 - 匹配层级: 精确 -> 相似 -> 向量
 - 默认阈值: 相似匹配 `0.6`，向量匹配 `0.75`
-- TTL: `quick=2h`，`standard=1h`，`deep=30m`
+- TTL 按意图决定: `news=1h`、`general=1d`、`troubleshooting=3d`、`comparison=3d`、`release=6h`、`status=6h`
+- `quick` 模式会关闭查询扩展，并把缓存 TTL 封顶到 12 小时；`deep` 模式没有单独更短的 TTL
 - 缓存 scope 包含 `strategy version`、`mode`、`expand`、`max_results`，不同搜索模式和不同搜索策略不会互相污染
 
-当前代码里的搜索策略版本是 `v8`。这个版本号用于在搜索策略发生明显变化时隔离旧缓存，例如：
+当前代码里的搜索策略版本是 `v24`。这个版本号用于在搜索策略发生明显变化时隔离旧缓存，例如：
 
 - 调整 query expansion 规则
 - 新增或修改意图识别
@@ -195,7 +196,7 @@ result = await searcher.search("Python 异步编程")
 agent-search/
 ├── SKILL.md
 ├── README.md
-├── example.py
+├── README-zh.md
 ├── scripts/
 │   ├── agent-search-cli
 │   ├── agent_search.py
@@ -206,7 +207,6 @@ agent-search/
 │   ├── brave_client.py
 │   ├── tavily_client.py
 │   ├── content_safety.py
-│   ├── jina_client.py
 │   ├── result_processor.py
 │   ├── config.py
 │   └── requirements.txt

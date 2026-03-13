@@ -141,10 +141,11 @@ result = await searcher.search("Python async programming")
 - Storage path: `~/.agents/haiyuan-ai/agent_search_cache/`
 - Match order: exact -> similarity -> vector
 - Default thresholds: similarity match `0.6`, vector match `0.75`
-- TTL: `quick=2h`, `standard=1h`, `deep=30m`
+- TTL is intent-based: `news=1h`, `general=1d`, `troubleshooting=3d`, `comparison=3d`, `release=6h`, `status=6h`
+- `quick` mode disables query expansion and caps cache TTL at 12h; `deep` mode does not use a separate shorter TTL
 - Cache scope includes `strategy version`, `mode`, `expand`, and `max_results`, so different search modes and strategies do not pollute each other
 
-The current search strategy version in the code is `v8`. This version isolates old cache entries when the search strategy changes significantly, for example:
+The current search strategy version in the code is `v24`. This version isolates old cache entries when the search strategy changes significantly, for example:
 
 - Query expansion rules are adjusted
 - Intent detection is added or modified
@@ -196,7 +197,6 @@ agent-search/
 ├── SKILL.md
 ├── README.md
 ├── README-zh.md
-├── example.py
 ├── scripts/
 │   ├── agent-search-cli
 │   ├── agent_search.py
@@ -207,7 +207,6 @@ agent-search/
 │   ├── brave_client.py
 │   ├── tavily_client.py
 │   ├── content_safety.py
-│   ├── jina_client.py
 │   ├── result_processor.py
 │   ├── config.py
 │   └── requirements.txt
