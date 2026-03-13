@@ -10,11 +10,12 @@ import argparse
 import hashlib
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from typing import List, Tuple, Optional
+from typing import Dict, List, Optional, Tuple
 
 from styles import (
     get_available_styles,
@@ -23,16 +24,27 @@ from styles import (
 )
 
 
+MERMAID_BLOCK_PATTERN = re.compile(
+    r"```mermaid[^\n\r]*\r?\n(.*?)```",
+    re.DOTALL | re.IGNORECASE,
+)
+
+CHART_TYPE_PATTERNS = (
+    ("sequence", re.compile(r"^\s*sequenceDiagram\b", re.MULTILINE)),
+    ("gantt", re.compile(r"^\s*gantt\b", re.MULTILINE)),
+    ("class", re.compile(r"^\s*classDiagram\b", re.MULTILINE)),
+    ("state", re.compile(r"^\s*stateDiagram(?:-v2)?\b", re.MULTILINE)),
+    ("flowchart", re.compile(r"^\s*(?:graph|flowchart)\b", re.MULTILINE)),
+)
+
+
 def extract_mermaid_diagrams(content: str) -> List[Tuple[str, str, int]]:
     """Extract Mermaid diagrams from Markdown content."""
-    pattern = r'```mermaid\n(.*?)```'
-    matches = re.finditer(pattern, content, re.DOTALL)
-
     diagrams = []
-    for idx, match in enumerate(matches):
+    for idx, match in enumerate(MERMAID_BLOCK_PATTERN.finditer(content)):
         code = match.group(1).strip()
-        lines = code.split('\n')
-        title = lines[0] if lines else f"diagram_{idx}"
+        lines = [line.strip() for line in code.splitlines() if line.strip()]
+        title = lines[0] if lines else f"diagram_{idx + 1}"
         diagrams.append((code, title, idx))
 
     return diagrams
@@ -41,6 +53,23 @@ def extract_mermaid_diagrams(content: str) -> List[Tuple[str, str, int]]:
 def generate_diagram_hash(code: str) -> str:
     """Generate hash for diagram code."""
     return hashlib.md5(code.encode('utf-8')).hexdigest()[:8]
+
+
+def detect_chart_type(code: str) -> str:
+    """Infer Mermaid chart type from diagram source."""
+    for chart_type, pattern in CHART_TYPE_PATTERNS:
+        if pattern.search(code):
+            return chart_type
+    return "flowchart"
+
+
+def resolve_mmdc_command() -> List[str]:
+    """Prefer a locally installed mermaid CLI and fall back to npx."""
+    for binary in ("mmdc", "@mermaid-js/mermaid-cli"):
+        resolved = shutil.which(binary)
+        if resolved:
+            return [resolved]
+    return ["npx", "@mermaid-js/mermaid-cli"]
 
 
 def convert_mermaid_to_image(
@@ -55,14 +84,17 @@ def convert_mermaid_to_image(
     with tempfile.NamedTemporaryFile(mode='w', suffix='.mmd', delete=False) as f:
         f.write(code)
         temp_mmd_path = f.name
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        f.write('{"args":["--no-sandbox","--disable-setuid-sandbox"]}')
+        temp_puppeteer_config = f.name
 
     try:
-        cmd = [
-            'npx', '@mermaid-js/mermaid-cli',
+        cmd = resolve_mmdc_command() + [
             '-i', temp_mmd_path,
             '-o', output_path,
             '-b', background,
-            '-w', str(width)
+            '-w', str(width),
+            '-p', temp_puppeteer_config,
         ]
 
         result = subprocess.run(
@@ -74,6 +106,12 @@ def convert_mermaid_to_image(
 
         if result.returncode != 0:
             print(f"Error: {result.stderr}")
+            if "Failed to launch the browser process" in result.stderr:
+                print(
+                    "Hint: Mermaid CLI needs Chromium via Puppeteer. "
+                    "If you are in a restricted sandbox/CI environment, run this outside the sandbox "
+                    "or provide a Chrome/Puppeteer setup that can launch locally."
+                )
             return False
 
         return True
@@ -88,12 +126,12 @@ def convert_mermaid_to_image(
     finally:
         if os.path.exists(temp_mmd_path):
             os.unlink(temp_mmd_path)
+        if os.path.exists(temp_puppeteer_config):
+            os.unlink(temp_puppeteer_config)
 
 
 def replace_mermaid_with_images(content: str, image_mapping: dict) -> str:
     """Replace Mermaid code blocks with image references."""
-    pattern = r'```mermaid\n(.*?)```'
-
     idx_counter = [0]
     def replace_func(match):
         current_idx = idx_counter[0]
@@ -105,7 +143,7 @@ def replace_mermaid_with_images(content: str, image_mapping: dict) -> str:
             return f"![{alt_text}]({image_path})"
         return match.group(0)
 
-    return re.sub(pattern, replace_func, content, flags=re.DOTALL)
+    return MERMAID_BLOCK_PATTERN.sub(replace_func, content)
 
 
 def main():
@@ -117,7 +155,12 @@ def main():
     parser.add_argument('-f', '--format', default='png', choices=['png', 'svg'], help='Output format')
     parser.add_argument('--replace', action='store_true', help='Replace code blocks with images')
     parser.add_argument('--style', choices=get_available_styles(), help='Apply a built-in style theme')
-    parser.add_argument('--chart-type', default='flowchart', choices=['flowchart', 'sequence', 'gantt', 'class', 'state'], help='Optimize for specific chart type')
+    parser.add_argument(
+        '--chart-type',
+        default='auto',
+        choices=['auto', 'flowchart', 'sequence', 'gantt', 'class', 'state'],
+        help='Optimize for specific chart type, or auto-detect from each diagram',
+    )
 
     args = parser.parse_args()
 
@@ -144,17 +187,21 @@ def main():
         if style_info:
             print(f"Using style: {style_info['name']} - {style_info['description']}")
 
-    image_mapping = {}
+    image_mapping: Dict[int, str] = {}
+    output_dir = Path(args.output_dir)
     for idx, (code, title, _) in enumerate(diagrams):
+        chart_type = detect_chart_type(code) if args.chart_type == 'auto' else args.chart_type
+
         # Inject style if specified
         if args.style:
-            code = inject_style_into_diagram(code, args.style, args.chart_type)
+            code = inject_style_into_diagram(code, args.style, chart_type)
 
         hash_str = generate_diagram_hash(code)
         filename = f"diagram_{idx + 1}_{hash_str}.{args.format}"
-        output_path = os.path.join(args.output_dir, filename)
+        output_path = output_dir / filename
 
         print(f"\nConverting diagram {idx + 1}: {title}")
+        print(f"  Chart type: {chart_type}")
         print(f"  Output: {output_path}")
 
         # Use style background if available, otherwise use args.background
@@ -165,14 +212,14 @@ def main():
 
         success = convert_mermaid_to_image(
             code=code,
-            output_path=output_path,
+            output_path=str(output_path),
             width=args.width,
             background=background,
             fmt=args.format
         )
 
         if success:
-            image_mapping[idx] = output_path
+            image_mapping[idx] = output_path.name
             print(f"  Success")
         else:
             print(f"  Failed")

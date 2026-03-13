@@ -4,6 +4,8 @@ Mermaid Style Themes Configuration
 Built-in professional themes for mermaid-to-png.
 """
 
+import json
+import re
 from typing import Dict, Any, Optional, List
 
 # =============================================================================
@@ -210,11 +212,6 @@ def generate_mermaid_config(style_name: Optional[str] = None, chart_type: str = 
     Generate Mermaid configuration JSON for the given style and chart type.
     Returns the config as a string to be injected into the diagram.
     """
-    config_parts = []
-
-    # Add init directive
-    config_parts.append('%%{init: {')
-
     settings = []
 
     # Add theme variables if style is specified
@@ -223,22 +220,20 @@ def generate_mermaid_config(style_name: Optional[str] = None, chart_type: str = 
         theme_vars = style.get("theme_variables", {})
 
         if theme_vars:
-            settings.append(f"  'themeVariables': {str(theme_vars).replace(chr(39), chr(34))}")
+            settings.append(("themeVariables", theme_vars))
 
         # Add flowchart-specific settings
         flowchart_config = style.get("flowchart", {})
         if flowchart_config:
-            settings.append(f"  'flowchart': {str(flowchart_config).replace(chr(39), chr(34))}")
+            settings.append(("flowchart", flowchart_config))
 
         # Add chart type specific config
         chart_config = CHART_TYPE_CONFIGS.get(chart_type, {})
         if chart_config:
-            settings.append(f"  '{chart_type}': {str(chart_config).replace(chr(39), chr(34))}")
+            settings.append((chart_type, chart_config))
 
-    config_parts.append(','.join(settings))
-    config_parts.append('}}%%')
-
-    return '\n'.join(config_parts)
+    config_payload = {key: value for key, value in settings}
+    return f"%%{{init: {json.dumps(config_payload, ensure_ascii=False)}}}%%"
 
 def inject_style_into_diagram(diagram_code: str, style_name: Optional[str] = None, chart_type: str = "flowchart") -> str:
     """
