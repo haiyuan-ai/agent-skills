@@ -16,7 +16,7 @@
       "prompt": "帮我在 Writing 文件夹创建一篇新笔记，标题是 Meeting-2024-01-15",
       "expected_output": "使用 obsidian create 命令创建笔记",
       "expectations": [
-        "使用正确的 path 参数：path=\"Writing/Meeting-2024-01-15.md\"",
+        "使用正确的 path 参数：path='Writing/Meeting-2024-01-15.md'",
         "使用 Bash 工具执行命令",
         "确认创建成功"
       ]
@@ -77,7 +77,7 @@
       "expected_output": "使用 obsidian command 执行 daily-notes 插件命令，然后使用 obsidian append 添加任务",
       "expectations": [
         "先打开 daily note：obsidian command id=daily-notes:daily-notes",
-        "获取 daily note 路径后追加任务：obsidian append path=\"YYYY-MM-DD.md\" content=\"- [ ] 新任务\"",
+        "获取 daily note 路径后追加任务：obsidian append path='YYYY-MM-DD.md' content='- [ ] 新任务'",
         "确认添加成功"
       ]
     }

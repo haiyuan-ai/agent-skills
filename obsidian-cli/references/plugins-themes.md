@@ -126,9 +126,6 @@ obsidian snippets:enabled
 
 # Enable CSS snippet
 obsidian snippet:enable name="custom.css"
-
-# Inspect CSS
-obsidian dev:css selector=".markdown-preview-view"
 ```
 
 ---

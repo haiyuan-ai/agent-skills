@@ -60,12 +60,17 @@ Choose the correct syntax from the command references:
 
 Use the `Bash` tool to run Obsidian CLI commands, but always apply the security constraints below:
 
-```javascript
-// OK: use only explicitly allowed CLI subcommands and quote arguments strictly
-Bash('obsidian read path="Notes/MyNote.md"')
+```bash
+# OK: use single quotes for user-controlled values — prevents $() and $VAR expansion
+obsidian read path='Notes/MyNote.md'
+obsidian search query='user keyword'
 
-// Avoid: never interpolate unvalidated user input directly into shell syntax
-// Bash(`obsidian read path="${userInput}"`)
+# OK: double quotes only for trusted static strings in the skill's own examples
+obsidian append path="2026-03-13.md" content="- [ ] task"
+
+# Avoid: never interpolate unvalidated input into double-quoted or unquoted shell syntax
+# obsidian read path="$userInput"          # variable expansion
+# obsidian read path="$(echo malicious)"   # command substitution
 ```
 
 ### 4. Return the result
