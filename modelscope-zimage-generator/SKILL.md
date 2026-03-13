@@ -1,9 +1,9 @@
 ---
 name: modelscope-zimage-generator
 description: |
-  Generate images using ModelScope Z-Image series models (Z-Image-Turbo, Z-Image).
-  Use when user asks to generate images, create artwork, make cover images, or requests image generation.
-  Supports async generation with polling and optional LoRA configurations.
+  Generate images with ModelScope Z-Image models.
+  Use for image generation, artwork, cover images, and LoRA-based variants.
+  Supports async polling.
 ---
 
 # ModelScope Z-Image Generator Skill
@@ -12,47 +12,53 @@ Generate images using ModelScope's Z-Image series models with async polling flow
 
 ## When to Use This Skill
 
-| 场景 | 中文表达示例 | English Examples |
-|------|------------|-----------------|
-| **生成图片** | "生成一张图片"、"画一只猫"、"创建封面图" | "generate an image", "create a picture", "make a cover" |
-| **艺术创作** | "画一幅画"、"创作艺术品" | "create artwork", "paint a picture" |
-| **批量生成** | "多生成几张"、"并行生成" | "generate multiple", "parallel generation" |
+Use this skill when the user asks to:
+
+- generate an image or illustration
+- create artwork or a cover image
+- use ModelScope Z-Image or Z-Image-Turbo explicitly
+- generate multiple image variants
+- apply a LoRA during generation
+
+Common trigger phrases:
+- English: `generate an image`, `create artwork`, `make a cover`, `use Z-Image`
+- Chinese: `生成图片`, `画一张图`, `创建封面图`, `用 Z-Image`
 
 ## Core Workflow
 
-### 1. 解析用户请求
+### 1. Parse the Request
 
-确定生成需求：
-- 文本生成图片：文生图
-- LoRA 定制：指定风格模型
-- 批量生成：多张图片
+Identify the generation mode:
+- text-to-image
+- LoRA-assisted generation
+- multi-image or batch generation
 
-### 2. 选择模型
+### 2. Choose the Model
 
-根据用户指定选择模型：
-- 用户明确说 "Z-Image-Turbo" → `Tongyi-MAI/Z-Image-Turbo`
-- 用户明确说 "Z-Image" → `Tongyi-MAI/Z-Image`
-- 默认 → `Tongyi-MAI/Z-Image-Turbo`
+Select the model based on the user's request:
+- explicit `Z-Image-Turbo` -> `Tongyi-MAI/Z-Image-Turbo`
+- explicit `Z-Image` -> `Tongyi-MAI/Z-Image`
+- default -> `Tongyi-MAI/Z-Image-Turbo`
 
-### 3. 构建并执行生成脚本
+### 3. Run the Generator Script
 
 ```bash
 cd /path/to/modelscope-zimage-generator
 python scripts/generate_image.py "prompt" output.jpg
 ```
 
-### 4. 返回结果
+### 4. Return the Result
 
-告知用户生成结果：
-- 成功：返回文件路径 "Image saved to: /path/to/output.jpg"
-- 失败：解释错误原因
+Tell the user what happened:
+- success: return the output path
+- failure: explain the error clearly
 
 ## Prerequisites
 
-执行前确认：
-1. **ModelScope API Key** - 从 https://modelscope.cn/my/myaccesstoken 获取
-2. **Python 环境** - 需要 `requests` 和 `PIL` 库
-3. **脚本路径正确** - 确保 `generate_image.py` 存在
+Before running:
+1. **ModelScope API key**: obtain it from `https://modelscope.cn/my/myaccesstoken`
+2. **Python environment**: requires `requests` and `PIL`
+3. **Valid script path**: make sure `generate_image.py` exists
 
 ## Quick Command Mapping
 
@@ -97,7 +103,7 @@ wait
 
 ## Resources
 
-详细参考：
+Read references only when needed:
 - `references/api-reference.md` - API 完整参数
 - `references/lora-config.md` - LoRA 配置指南
 - `references/troubleshooting.md` - 故障排查
@@ -119,11 +125,11 @@ EOF
 
 ### Task Timeout
 
-- 默认超时 5 分钟（60 次轮询）
-- 增加轮询次数或检查任务状态
+- Default timeout is 5 minutes (60 polling attempts)
+- Increase polling attempts or inspect the task status
 
 ### LoRA Not Working
 
-- 检查 LoRA ID 是否正确
-- 确认 LoRA 权重和为 1.0
-- `--lora` 和 `--loras` 不能同时使用
+- Check whether the LoRA ID is valid
+- Make sure multiple LoRA weights sum to `1.0`
+- Do not use `--lora` and `--loras` together
