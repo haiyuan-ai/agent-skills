@@ -3,13 +3,11 @@ name: agent-search
 description: |
   Web search for current or external info.
 
-  Trigger: search verbs ("search", "look up", "查", "搜", "google"), real-time queries ("latest", "news", "更新", "进展"), research/comparison ("调研", "对比", "vs"), proper nouns (people, companies, products).
+  Trigger: search verbs ("search", "查", "搜", "google"), freshness ("latest", "news", "更新", "进展"), comparison ("调研", "对比", "vs"), proper nouns.
 
-  Skip: local operations, explicit use of another search tool, and general knowledge.
+  Skip: local ops, explicit other search tool, general knowledge.
 
-  Output: JSON via `--json`.
-
-version: 0.6.0
+version: 0.7.0
 author: Haiyuan AI
 ---
 
@@ -41,6 +39,15 @@ Use `deep` when:
 Use `quick` when:
 - User just wants links or quick fact check
 - User already gave specific query, no expansion needed
+
+## Search Sources
+
+- `auto` (default): Multi-source search with Tavily/Brave/Exa API keys. Falls back to DDGS if no keys configured or all engines fail.
+- `ddgs`: DuckDuckGo only via DDGS library. No API key needed.
+
+```bash
+agent-search-cli "query" --json --source ddgs
+```
 
 ## Query Intent Detection
 

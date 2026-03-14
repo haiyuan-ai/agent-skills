@@ -95,7 +95,7 @@ class ExaClient:
 
         except Exception as e:
             get_smart_cache().record_provider_usage("exa", success=False)
-            print(f"Exa 搜索错误: {e}")
+            print(f"Exa search error: {e}")
             return []
 
     async def search_with_timeout(
@@ -111,5 +111,5 @@ class ExaClient:
                 timeout=timeout
             )
         except asyncio.TimeoutError:
-            print(f"Exa 搜索超时 (> {timeout}s)")
+            print(f"Exa search timeout (> {timeout}s)")
             return []

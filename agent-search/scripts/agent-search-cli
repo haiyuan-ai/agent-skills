@@ -19,15 +19,15 @@ sys.path.insert(0, os.path.dirname(__file__))
 def print_results(result: dict, verbose: bool = False):
     """打印搜索结果"""
     print("\n" + "=" * 70)
-    print(f"🔍 搜索: {result['query']}")
-    print(f"   查询变体: {', '.join(result['search_queries'])}")
-    print(f"   使用来源: {', '.join(result['sources_used'])}")
-    print(f"   总计: {result['total_found']} 条 | 去重: {result['unique_count']} 条 | 返回: {result['results_returned']} 条")
+    print(f"🔍 Query: {result['query']}")
+    print(f"   Variants: {', '.join(result['search_queries'])}")
+    print(f"   Sources: {', '.join(result['sources_used'])}")
+    print(f"   Total: {result['total_found']} | Unique: {result['unique_count']} | Returned: {result['results_returned']}")
     print("=" * 70)
 
     status_summary = result.get("status_summary")
     if status_summary:
-        print(f"📌 截至 {status_summary.get('as_of_date', 'N/A')} 的结构化摘要")
+        print(f"📌 Summary as of {status_summary.get('as_of_date', 'N/A')}")
         for line in status_summary.get("highlights", []):
             print(f"   - {line}")
         print("-" * 70)
@@ -35,10 +35,10 @@ def print_results(result: dict, verbose: bool = False):
     for item in result['results']:
         print(f"\n🏆 #{item['rank']} {item['title']}")
         print(f"   📎 {item['url']}")
-        print(f"   📊 质量: {item['quality_score']:.2f} | 来源: {item['source']} | 内容源: {item.get('content_source', 'N/A')}")
+        print(f"   📊 Quality: {item['quality_score']:.2f} | Source: {item['source']} | Content: {item.get('content_source', 'N/A')}")
 
         if verbose:
-            print(f"   🔍 质量分解: {item.get('quality_breakdown', {})}")
+            print(f"   🔍 Breakdown: {item.get('quality_breakdown', {})}")
 
         # 打印内容预览
         content = item.get('content', '')
@@ -57,17 +57,17 @@ def print_cache_stats():
     stats = cache.get_stats()
 
     print("\n" + "=" * 70)
-    print("💾 智能缓存统计")
+    print("💾 Cache Statistics")
     print("=" * 70)
-    print(f"   总条目数: {stats['total_entries']}")
-    print(f"   活跃条目: {stats['active_entries']}")
-    print(f"   过期条目: {stats['expired_entries']}")
-    print(f"   总命中次数: {stats['total_hits']}")
-    print(f"   缓存大小: {stats['db_size_mb']} MB")
-    print(f"   缓存位置: {stats['cache_dir']}")
-    print(f"   向量搜索: {'✅ 已启用' if stats.get('vector_search_enabled') else '❌ 未启用'}")
+    print(f"   Total entries: {stats['total_entries']}")
+    print(f"   Active: {stats['active_entries']}")
+    print(f"   Expired: {stats['expired_entries']}")
+    print(f"   Total hits: {stats['total_hits']}")
+    print(f"   Size: {stats['db_size_mb']} MB")
+    print(f"   Path: {stats['cache_dir']}")
+    print(f"   Vector search: {'✅ enabled' if stats.get('vector_search_enabled') else '❌ disabled'}")
     if stats.get('vector_search_enabled'):
-        print(f"   向量条目: {stats.get('vector_entries', 0)}")
+        print(f"   Vector entries: {stats.get('vector_entries', 0)}")
     print("=" * 70)
 
 
@@ -79,13 +79,13 @@ def print_recent_cache(limit: int = 10):
     recent = cache.list_recent(limit)
 
     print("\n" + "=" * 70)
-    print(f"🕐 最近 {limit} 条缓存记录")
+    print(f"🕐 Recent {limit} cache entries")
     print("=" * 70)
 
     for i, item in enumerate(recent, 1):
         print(f"\n{i}. {item['query']}")
-        print(f"   访问次数: {item['access_count']} | 命中次数: {item['hit_count']}")
-        print(f"   最后访问: {time.strftime('%Y-%m-%d %H:%M', time.localtime(item['last_access']))}")
+        print(f"   Accessed: {item['access_count']} | Hits: {item['hit_count']}")
+        print(f"   Last access: {time.strftime('%Y-%m-%d %H:%M', time.localtime(item['last_access']))}")
 
     print("\n" + "=" * 70)
 
@@ -99,10 +99,10 @@ def print_usage_stats():
     limits = cache.get_provider_free_limits()
 
     print("\n" + "=" * 70)
-    print("📊 本月 API 使用统计")
+    print("📊 Monthly API Usage")
     print("=" * 70)
     if not stats:
-        print("   暂无调用记录")
+        print("   No records yet")
     else:
         for item in stats:
             provider = item["provider"]
@@ -110,7 +110,7 @@ def print_usage_stats():
             limit = limits.get(provider)
             ratio = (used / limit) if limit else 0.0
             limit_text = f"{used}/{limit} ({ratio:.0%})" if limit else str(used)
-            print(f"   {provider}: {limit_text} | 成功: {item['success_count']} | 失败: {item['error_count']}")
+            print(f"   {provider}: {limit_text} | OK: {item['success_count']} | Err: {item['error_count']}")
     print("=" * 70)
 
 
@@ -122,7 +122,7 @@ def print_usage_warnings(log_stream):
     for item in warnings:
         prefix = "⚠️" if item["level"] == "warning" else "🚨"
         print(
-            f"{prefix} {item['provider']} 本月已使用 {item['request_count']}/{item['free_limit']} "
+            f"{prefix} {item['provider']} used {item['request_count']}/{item['free_limit']} "
             f"({item['usage_ratio']:.0%})",
             file=log_stream
         )
@@ -160,6 +160,13 @@ async def main():
         choices=["quick", "standard", "deep"],
         default="standard",
         help="搜索模式 (默认: standard)"
+    )
+
+    parser.add_argument(
+        "-s", "--source",
+        choices=["auto", "ddgs"],
+        default="auto",
+        help="搜索源 (auto: 多源搜索+DDGS兜底, ddgs: 仅用DuckDuckGo) (默认: auto)"
     )
 
     parser.add_argument(
@@ -229,7 +236,7 @@ async def main():
 
         cache = get_smart_cache()
         cache.clear()
-        print("✅ 缓存已清空")
+        print("✅ Cache cleared")
         return
 
     if args.cache_recent:
@@ -256,23 +263,15 @@ async def main():
 
     log_stream = sys.stderr if args.json else sys.stdout
 
-    if not exa_key and not brave_key and not tavily_key:
-        print("⚠️  警告: 未设置任何搜索 API Key", file=log_stream)
-        print("   建议设置以下环境变量之一:", file=log_stream)
-        print("   - TAVILY_API_KEY (推荐，AI 搜索主引擎)", file=log_stream)
-        print("   - BRAVE_API_KEY (Brave Search 补充)", file=log_stream)
-        print("   - EXA_API_KEY (语义搜索兜底)", file=log_stream)
-        print(file=log_stream)
-        print("   或在 .env 文件中配置:", file=log_stream)
-        print("   EXA_API_KEY=your-api-key", file=log_stream)
-        print("   BRAVE_API_KEY=your-api-key", file=log_stream)
-        print("   TAVILY_API_KEY=your-api-key", file=log_stream)
+    if args.source == "auto" and not exa_key and not brave_key and not tavily_key:
+        print("ℹ️  No API keys configured, using DDGS (DuckDuckGo)", file=log_stream)
+        print("   Set TAVILY_API_KEY etc. for better multi-source results", file=log_stream)
         print(file=log_stream)
 
-    print(f"🚀 开始搜索: {args.query}", file=log_stream)
+    print(f"🚀 Searching: {args.query}", file=log_stream)
     print(
-        f"   配置: mode={args.mode}, max_results={args.max_results}, "
-        f"expand={not args.no_expand}, cache={not args.no_cache}",
+        f"   Config: mode={args.mode}, max_results={args.max_results}, "
+        f"source={args.source}, expand={not args.no_expand}, cache={not args.no_cache}",
         file=log_stream
     )
     print_usage_warnings(log_stream)
@@ -287,7 +286,8 @@ async def main():
                     max_results=args.max_results,
                     mode=args.mode,
                     expand=not args.no_expand,
-                    use_cache=not args.no_cache
+                    use_cache=not args.no_cache,
+                    source=args.source,
                 )
         else:
             result = await search(
@@ -295,7 +295,8 @@ async def main():
                 max_results=args.max_results,
                 mode=args.mode,
                 expand=not args.no_expand,
-                use_cache=not args.no_cache
+                use_cache=not args.no_cache,
+                source=args.source,
             )
 
         if args.json:
@@ -307,10 +308,10 @@ async def main():
         if args.output:
             with open(args.output, 'w', encoding='utf-8') as f:
                 json.dump(result, f, ensure_ascii=False, indent=2)
-            print(f"\n💾 结果已保存到: {args.output}", file=log_stream)
+            print(f"\n💾 Saved to: {args.output}", file=log_stream)
 
     except Exception as e:
-        print(f"\n❌ 搜索失败: {e}", file=log_stream)
+        print(f"\n❌ Search failed: {e}", file=log_stream)
         sys.exit(1)
 
 

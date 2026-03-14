@@ -68,11 +68,11 @@ async def retry_async(
 
             if attempt < config.max_retries:
                 delay = calculate_delay(attempt, config)
-                print(f"  ⚠️  尝试 {attempt + 1}/{config.max_retries + 1} 失败: {e}")
-                print(f"     等待 {delay:.1f}s 后重试...")
+                print(f"  ⚠️  Attempt {attempt + 1}/{config.max_retries + 1} failed: {e}")
+                print(f"     Retrying in {delay:.1f}s...")
                 await asyncio.sleep(delay)
             else:
-                print(f"  ❌ 所有 {config.max_retries + 1} 次尝试均失败")
+                print(f"  ❌ All {config.max_retries + 1} attempts failed")
 
     raise last_exception
 
@@ -140,7 +140,7 @@ class CircuitBreaker:
 
         if self.failures >= self.failure_threshold:
             self.state = "open"
-            print(f"  🔴 熔断器开启: 连续 {self.failures} 次失败")
+            print(f"  🔴 Circuit breaker open: {self.failures} consecutive failures")
 
 
 # API 特定的重试配置

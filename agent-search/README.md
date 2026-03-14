@@ -4,9 +4,15 @@
 
 Deep, structured web search for agents that support `SKILL.md`.
 
+## Install
+
+```bash
+npx skills add haiyuan-ai/agent-skills@agent-search
+```
+
 ## Features
 
-- Multi-source search: Tavily as the primary engine, Brave as a supplement, and Exa as a fallback
+- Multi-source search: Tavily as the primary engine, Brave as a supplement, Exa as a semantic fallback, and DDGS (DuckDuckGo) as a zero-config fallback
 - Query expansion: Automatically generates complementary search terms
 - Safe summaries: Returns only short excerpts from search engine snippets and does not fetch full third-party page content
 - Result fusion: Deduplicates, scores, and ranks results consistently
@@ -57,6 +63,16 @@ This matters for ambiguous queries like "latest Node.js version" or "Product X l
 - `mode=standard`: Expands queries, still returns only safe excerpts from search snippets
 - `mode=deep`: Broader retrieval with advanced search depth, but still returns only safe excerpts from search snippets
 
+### Search Sources
+
+- `auto` (default): Multi-source search with Tavily/Brave/Exa API keys. Falls back to DDGS if no keys are configured or all engines return no results.
+- `ddgs`: DuckDuckGo only via the DDGS library. No API key needed.
+
+```bash
+# Use DDGS explicitly
+./scripts/agent-search-cli "query" --json --source ddgs
+```
+
 ## Dependencies
 
 ```bash
@@ -86,7 +102,7 @@ GEMINI_API_KEY="your-gemini-api-key"
 EOF
 ```
 
-Only one of the three search APIs is required, but `TAVILY_API_KEY` is the recommended default:
+All search API keys are optional. Without any keys, the tool falls back to DDGS (DuckDuckGo). For better multi-source results, `TAVILY_API_KEY` is recommended:
 
 | API | Free Tier | Notes |
 |-----|-----------|-------|
@@ -128,6 +144,9 @@ Use this table only as a rough estimate. Always check current official pricing f
 # Disable query expansion
 ./scripts/agent-search-cli "AI coding assistant" --no-expand
 
+# Use DuckDuckGo search (no API key needed)
+./scripts/agent-search-cli "AI coding assistant" --source ddgs --json
+
 # Write output to a file
 ./scripts/agent-search-cli "AI coding assistant" --json -o results.json
 ```
@@ -158,6 +177,11 @@ searcher = AgentSearch(config)
 result = await searcher.search("Python async programming")
 ```
 
+```python
+# DDGS-only search (no API key needed)
+result = await search("Python async programming", source="ddgs")
+```
+
 ## Cache
 
 - Storage path: `~/.agents/haiyuan-ai/agent_search_cache/`
@@ -165,7 +189,7 @@ result = await searcher.search("Python async programming")
 - Default thresholds: similarity match `0.6`, vector match `0.75`
 - TTL is intent-based: `news=1h`, `general=1d`, `troubleshooting=3d`, `comparison=3d`, `release=6h`, `status=6h`
 - `quick` mode disables query expansion and caps cache TTL at 12h; `deep` mode does not use a separate shorter TTL
-- Cache scope includes `strategy version`, `mode`, `expand`, and `max_results`, so different search modes and strategies do not pollute each other
+- Cache scope includes `strategy version`, `mode`, `expand`, `max_results`, and `source`, so different search modes, strategies, and sources do not pollute each other
 
 The current search strategy version in the code is `v24`. This version isolates old cache entries when the search strategy changes significantly, for example:
 
@@ -194,7 +218,7 @@ Cache management:
   "query": "original query",
   "intent": "status",
   "search_queries": ["expanded query 1", "expanded query 2"],
-  "sources_used": ["exa", "brave", "tavily"],
+  "sources_used": ["exa", "brave", "tavily", "ddgs"],
   "total_found": 25,
   "unique_count": 18,
   "results_returned": 10,
@@ -245,6 +269,7 @@ agent-search/
 │   ├── exa_client.py
 │   ├── brave_client.py
 │   ├── tavily_client.py
+│   ├── ddgs_client.py
 │   ├── content_safety.py
 │   ├── result_processor.py
 │   ├── config.py

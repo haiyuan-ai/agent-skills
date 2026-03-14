@@ -4,9 +4,15 @@
 
 为支持 `SKILL.md` 的 Agent 提供深度、结构化的联网搜索能力。
 
+## 安装
+
+```bash
+npx skills add haiyuan-ai/agent-skills@agent-search
+```
+
 ## 特性
 
-- 多源搜索: Tavily 主引擎 + Brave 补充 + Exa 兜底
+- 多源搜索: Tavily 主引擎 + Brave 补充 + Exa 语义兜底 + DDGS (DuckDuckGo) 零配置兜底
 - 查询扩展: 自动生成互补检索词
 - 安全摘要: 仅返回搜索引擎摘要的短摘录，不抓取第三方页面全文
 - 结果融合: 去重、评分、统一排序
@@ -57,6 +63,16 @@ Agent Search 会自动识别查询意图，并按不同意图使用不同搜索�
 - `mode=standard`: 扩展查询，只返回搜索摘要安全摘录
 - `mode=deep`: 更广泛检索与 advanced 搜索深度，但仍只返回搜索摘要安全摘录
 
+### 搜索源
+
+- `auto`（默认）：使用已配置的 Tavily/Brave/Exa API Key 进行多源搜索。未配置任何 Key 或所有引擎无结果时自动降级到 DDGS。
+- `ddgs`：仅使用 DuckDuckGo 搜索，无需 API Key。
+
+```bash
+# 显式使用 DDGS
+./scripts/agent-search-cli "query" --json --source ddgs
+```
+
 ## 依赖
 
 ```bash
@@ -86,7 +102,7 @@ GEMINI_API_KEY="your-gemini-api-key"
 EOF
 ```
 
-搜索功能只要求三者之一存在即可，但默认推荐优先配置 `TAVILY_API_KEY`：
+所有搜索 API Key 均为可选。未配置任何 Key 时自动降级到 DDGS (DuckDuckGo)。配置 `TAVILY_API_KEY` 可获得更好的多源搜索结果：
 
 | API | 免费额度 | 特点 |
 |-----|---------|------|
@@ -128,6 +144,9 @@ EOF
 # 不扩展查询
 ./scripts/agent-search-cli "AI 编程助手" --no-expand
 
+# 使用 DuckDuckGo 搜索（无需 API Key）
+./scripts/agent-search-cli "AI 编程助手" --source ddgs --json
+
 # 输出到文件
 ./scripts/agent-search-cli "AI 编程助手" --json -o results.json
 ```
@@ -158,6 +177,11 @@ searcher = AgentSearch(config)
 result = await searcher.search("Python 异步编程")
 ```
 
+```python
+# 仅使用 DDGS 搜索（无需 API Key）
+result = await search("Python 异步编程", source="ddgs")
+```
+
 ## 缓存
 
 - 存储位置: `~/.agents/haiyuan-ai/agent_search_cache/`
@@ -165,7 +189,7 @@ result = await searcher.search("Python 异步编程")
 - 默认阈值: 相似匹配 `0.6`，向量匹配 `0.75`
 - TTL 按意图决定: `news=1h`、`general=1d`、`troubleshooting=3d`、`comparison=3d`、`release=6h`、`status=6h`
 - `quick` 模式会关闭查询扩展，并把缓存 TTL 封顶到 12 小时；`deep` 模式没有单独更短的 TTL
-- 缓存 scope 包含 `strategy version`、`mode`、`expand`、`max_results`，不同搜索模式和不同搜索策略不会互相污染
+- 缓存 scope 包含 `strategy version`、`mode`、`expand`、`max_results`、`source`，不同搜索模式、策略和搜索源不会互相污染
 
 当前代码里的搜索策略版本是 `v24`。这个版本号用于在搜索策略发生明显变化时隔离旧缓存，例如：
 
@@ -194,7 +218,7 @@ result = await searcher.search("Python 异步编程")
   "query": "原始查询",
   "intent": "status",
   "search_queries": ["扩展查询1", "扩展查询2"],
-  "sources_used": ["exa", "brave", "tavily"],
+  "sources_used": ["exa", "brave", "tavily", "ddgs"],
   "total_found": 25,
   "unique_count": 18,
   "results_returned": 10,
@@ -245,6 +269,7 @@ agent-search/
 │   ├── exa_client.py
 │   ├── brave_client.py
 │   ├── tavily_client.py
+│   ├── ddgs_client.py
 │   ├── content_safety.py
 │   ├── result_processor.py
 │   ├── config.py

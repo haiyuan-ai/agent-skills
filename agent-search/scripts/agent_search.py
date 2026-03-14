@@ -17,6 +17,7 @@ try:
     from .exa_client import ExaClient
     from .brave_client import BraveClient
     from .tavily_client import TavilyClient
+    from .ddgs_client import DdgsClient
     from .content_safety import apply_content_safety
     from .fresh_update_strategy import (
         build_status_summary,
@@ -55,6 +56,7 @@ except ImportError:
     from exa_client import ExaClient
     from brave_client import BraveClient
     from tavily_client import TavilyClient
+    from ddgs_client import DdgsClient
     from content_safety import apply_content_safety
     from fresh_update_strategy import (
         build_status_summary,
@@ -103,6 +105,7 @@ class SearchConfig:
     mode: Literal["quick", "standard", "deep"] = "standard"
     enable_brave: bool = True  # 默认仅在部分意图下作为补充
     enable_tavily: bool = True  # 默认启用 Tavily 作为主搜索引擎
+    source: Literal["auto", "ddgs"] = "auto"  # auto: 多源搜索 + DDGS fallback; ddgs: 仅用 DDGS
 
     def __post_init__(self):
         """验证配置值"""
@@ -114,6 +117,8 @@ class SearchConfig:
             raise ValueError(f"brave_max_results must be between 1 and 20, got {self.brave_max_results}")
         if self.tavily_max_results < 1 or self.tavily_max_results > 20:
             raise ValueError(f"tavily_max_results must be between 1 and 20, got {self.tavily_max_results}")
+        if self.source not in ("auto", "ddgs"):
+            raise ValueError(f"source must be 'auto' or 'ddgs', got {self.source!r}")
 
 
 def domain_matches_subject(domain: str, subject: str) -> bool:
@@ -182,7 +187,7 @@ class AgentSearch:
             task_sources.append('tavily')
 
         if not tasks:
-            print(f"   ⚠️ 无可用搜索源")
+            print(f"   ⚠️ No available search sources")
             return []
 
         results_list = await asyncio.gather(*tasks)
@@ -204,6 +209,45 @@ class AgentSearch:
         # 合并所有结果
         return ResultMerger.merge_sources(exa_results, brave_results, tavily_results)
 
+    async def _search_ddgs_only(self, query: str, expand: bool = True) -> Dict:
+        """仅使用 DDGS 搜索（用户显式指定或无 API Key fallback）"""
+        print(f"🔍 Searching: {query}")
+        print("   🦆 Using DDGS (DuckDuckGo)")
+
+        queries = expand_query(query) if expand else [query]
+        intent = detect_query_intent(query)
+        print(f"   Expanded to {len(queries)} queries")
+        print(f"   Intent: {intent}")
+
+        ddgs = DdgsClient()
+        async with ddgs:
+            all_results = []
+            for q in queries:
+                results = await ddgs.search_with_timeout(q, self.config.max_results)
+                print(f"   ✓ '{q}' returned {len(results)} results")
+                all_results.extend(results)
+
+        unique_results = ResultMerger.deduplicate(all_results)
+        print(f"   Deduplicated: {len(unique_results)} results")
+
+        unique_results = [apply_content_safety(dict(r)) for r in unique_results]
+        ranked_results = QualityScorer.rank(unique_results, intent=intent, query=query)
+        final_results = ranked_results[:self.config.max_results]
+        final_results = self._attach_safe_content(final_results)
+
+        response = {
+            "query": query,
+            "search_queries": list(queries),
+            "sources_used": ["ddgs"],
+            "total_found": len(all_results),
+            "unique_count": len(unique_results),
+            "results_returned": len(final_results),
+            "results": final_results,
+        }
+        if intent == "status":
+            response["status_summary"] = build_status_summary(final_results, query=query)
+        return response
+
     async def search(
         self,
         query: str,
@@ -219,22 +263,26 @@ class AgentSearch:
         Returns:
             结构化搜索结果
         """
-        print(f"🔍 开始搜索: {query}")
+        # 用户显式指定 DDGS
+        if self.config.source == "ddgs":
+            return await self._search_ddgs_only(query, expand)
+
+        print(f"🔍 Searching: {query}")
 
         # 1. 确定是否使用 Tavily 和 Brave
         use_brave = self.config.enable_brave and self.config.brave_api_key is not None
         use_tavily = self.config.enable_tavily and self.config.tavily_api_key is not None
         if use_tavily:
-            print("   启用 Tavily (AI 搜索) 主引擎")
+            print("   Tavily (AI search) enabled")
         if use_brave:
-            print("   启用 Brave Search 搜索补充")
+            print("   Brave Search enabled")
 
         # 2. 扩展查询
         queries = expand_query(query) if expand else [query]
         executed_queries = list(queries)
         intent = detect_query_intent(query)
-        print(f"   扩展为 {len(queries)} 个查询")
-        print(f"   查询意图: {intent}")
+        print(f"   Expanded to {len(queries)} queries")
+        print(f"   Intent: {intent}")
 
         # 3. 创建复用的客户端实例
         has_exa = self.config.exa_api_key is not None
@@ -260,17 +308,17 @@ class AgentSearch:
                 tavily=tavily if first_plan["tavily"] else None,
                 intent=intent,
             )
-            print(f"   ✓ '{queries[0]}' 返回 {len(first_results)} 条结果")
+            print(f"   ✓ '{queries[0]}' returned {len(first_results)} results")
             all_results.extend(first_results)
 
             extra_status_queries: List[str] = []
             if intent == "status" and has_stale_status_results(ResultMerger.deduplicate(all_results)):
-                print("   🕒 首轮结果偏旧，继续补充更偏最新动态的结果")
+                print("   🕒 First-round results are stale, fetching fresher updates")
                 extra_status_queries = build_status_discovery_queries(query)
                 extra_status_queries.extend(build_status_site_queries(query, ResultMerger.deduplicate(all_results)))
                 extra_status_queries = list(dict.fromkeys(extra_status_queries))
                 if extra_status_queries:
-                    print(f"   🎯 补充 {len(extra_status_queries)} 条官方站点定向查询")
+                    print(f"   🎯 Adding {len(extra_status_queries)} site-targeted queries")
                     executed_queries.extend([q for q in extra_status_queries if q not in executed_queries])
 
             exa_fallback_used = should_use_exa_fallback(
@@ -281,7 +329,7 @@ class AgentSearch:
                 has_exa
             )
             if exa_fallback_used:
-                print("   ➕ 首轮结果不足，补充 Exa 语义搜索")
+                print("   ➕ First-round results insufficient, adding Exa semantic search")
                 exa_tasks = []
                 if exa and not first_plan["exa"]:
                     exa_tasks.append(self.search_single(queries[0], exa=exa, intent=intent))
@@ -292,7 +340,7 @@ class AgentSearch:
                     exa_results_list = await asyncio.gather(*exa_tasks)
                     exa_queries = ([queries[0]] if exa and not first_plan["exa"] else []) + exa_followups
                     for q, results in zip(exa_queries, exa_results_list):
-                        print(f"   ✓ Exa 补充 '{q}' 返回 {len(results)} 条结果")
+                        print(f"   ✓ Exa supplement '{q}' returned {len(results)} results")
                         all_results.extend(results)
             if intent != "status" and len(queries) > 1 and should_early_stop(
                 ResultMerger.deduplicate(all_results),
@@ -300,7 +348,7 @@ class AgentSearch:
                 intent,
                 query=query,
             ):
-                print("   ⏹️ 首轮结果质量足够，跳过扩展查询")
+                print("   ⏹️ First-round quality sufficient, skipping expansion")
             else:
                 search_tasks = []
                 remaining_queries = queries[1:] + [q for q in extra_status_queries if q not in queries]
@@ -319,7 +367,7 @@ class AgentSearch:
                 if search_tasks:
                     results_list = await asyncio.gather(*search_tasks)
                     for q, results in zip(remaining_queries, results_list):
-                        print(f"   ✓ '{q}' 返回 {len(results)} 条结果")
+                        print(f"   ✓ '{q}' returned {len(results)} results")
                         all_results.extend(results)
 
                 if intent == "status" and has_stale_status_results(ResultMerger.deduplicate(all_results)):
@@ -328,7 +376,7 @@ class AgentSearch:
                         if q not in executed_queries
                     ]
                     if late_status_queries:
-                        print(f"   🎯 基于已发现域名，继续补充 {len(late_status_queries)} 条 site 定向查询")
+                        print(f"   🎯 Adding {len(late_status_queries)} site-targeted queries based on discovered domains")
                         executed_queries.extend(late_status_queries)
                         late_tasks = []
                         for idx, q in enumerate(late_status_queries, start=len(queries) + len(extra_status_queries)):
@@ -344,7 +392,7 @@ class AgentSearch:
                             )
                         late_results_list = await asyncio.gather(*late_tasks)
                         for q, results in zip(late_status_queries, late_results_list):
-                            print(f"   ✓ '{q}' 返回 {len(results)} 条结果")
+                            print(f"   ✓ '{q}' returned {len(results)} results")
                             all_results.extend(results)
         finally:
             if exa:
@@ -356,7 +404,17 @@ class AgentSearch:
 
         # 5. 去重
         unique_results = ResultMerger.deduplicate(all_results)
-        print(f"   去重后: {len(unique_results)} 条")
+        print(f"   Deduplicated: {len(unique_results)} results")
+
+        # 5.1 DDGS fallback: 所有 API 引擎均无结果时兜底
+        ddgs_used = False
+        if len(unique_results) == 0:
+            print("   🦆 All sources returned no results, falling back to DDGS")
+            ddgs = DdgsClient()
+            async with ddgs:
+                ddgs_results = await ddgs.search_with_timeout(query, self.config.max_results)
+            unique_results = ddgs_results
+            ddgs_used = True
 
         unique_results = [apply_content_safety(dict(result)) for result in unique_results]
 
@@ -370,10 +428,13 @@ class AgentSearch:
         final_results = self._attach_safe_content(final_results)
 
         # 9. 构建返回结构
+        sources = (["exa"] if has_exa else []) + (["brave"] if use_brave else []) + (["tavily"] if use_tavily else [])
+        if ddgs_used:
+            sources.append("ddgs")
         response = {
             "query": query,
             "search_queries": executed_queries,
-            "sources_used": (["exa"] if has_exa else []) + (["brave"] if use_brave else []) + (["tavily"] if use_tavily else []),
+            "sources_used": sources,
             "total_found": len(all_results),
             "unique_count": len(unique_results),
             "results_returned": len(final_results),
@@ -420,7 +481,8 @@ async def search(
     max_results: int = 10,
     mode: Literal["quick", "standard", "deep"] = "standard",
     expand: bool = True,
-    use_cache: bool = True
+    use_cache: bool = True,
+    source: Literal["auto", "ddgs"] = "auto",
 ) -> Dict:
     """
     便捷的搜索函数（支持智能缓存）
@@ -435,6 +497,7 @@ async def search(
         mode: 搜索模式 (quick/standard/deep)
         expand: 是否扩展查询
         use_cache: 是否使用缓存
+        source: 搜索源 (auto: 多源搜索 + DDGS fallback; ddgs: 仅用 DDGS)
 
     Returns:
         结构化搜索结果
@@ -443,19 +506,16 @@ async def search(
     if mode == "quick":
         expand = False
 
-    cache_scope = f"strategy={STRATEGY_VERSION}|mode={mode}|expand={int(expand)}|max_results={max_results}"
+    cache_scope = f"strategy={STRATEGY_VERSION}|mode={mode}|expand={int(expand)}|max_results={max_results}|source={source}"
 
     # 读取配置
     config = get_config()
     exa_key = config.get('exa_api_key')
     brave_key = config.get('brave_api_key')
     tavily_key = config.get('tavily_api_key')
-    if not exa_key and not brave_key and not tavily_key:
-        print("⚠️  警告: 未设置任何搜索 API Key")
-        print("   推荐至少设置 TAVILY_API_KEY；也支持 BRAVE_API_KEY 或 EXA_API_KEY")
-        print("   - 环境变量: TAVILY_API_KEY、BRAVE_API_KEY 或 EXA_API_KEY")
-        print("   - 或在 .env 文件中配置")
-        print()
+    if source == "auto" and not exa_key and not brave_key and not tavily_key:
+        print("ℹ️  No API keys configured, using DDGS (DuckDuckGo)")
+        print("   Set TAVILY_API_KEY etc. for better multi-source results")
 
     # 初始化智能缓存
     cache = get_smart_cache()
@@ -467,30 +527,27 @@ async def search(
             match_type = cache_result['match_type']
 
             if match_type == 'exact':
-                print(f"  💾 精确缓存命中")
+                print(f"  💾 Exact cache hit")
             elif match_type == 'similar':
                 original = cache_result.get('original_query', 'N/A')
                 similarity = cache_result.get('similarity', 0)
                 level = cache_result.get('similarity_level', 'unknown')
                 breakdown = cache_result.get('similarity_breakdown', {})
-                print(f"  💡 相似缓存命中")
-                print(f"     相似度: {similarity:.1%} ({level})")
-                print(f"     原查询: {original}")
+                print(f"  💡 Similar cache hit")
+                print(f"     Similarity: {similarity:.1%} ({level})")
+                print(f"     Original: {original}")
                 if breakdown:
-                    print(f"     字符级: {breakdown.get('char_level', 0):.1%} | "
-                          f"词汇级: {breakdown.get('word_level', 0):.1%} | "
-                          f"语义级: {breakdown.get('semantic', 0):.1%}")
+                    print(f"     Char: {breakdown.get('char_level', 0):.1%} | Word: {breakdown.get('word_level', 0):.1%} | Semantic: {breakdown.get('semantic', 0):.1%}")
             elif match_type == 'vector':
                 original = cache_result.get('original_query', 'N/A')
                 similarity = cache_result.get('similarity', 0)
                 level = cache_result.get('similarity_level', 'unknown')
                 breakdown = cache_result.get('similarity_breakdown', {})
-                print(f"  🧠 向量语义缓存命中")
-                print(f"     向量相似度: {similarity:.1%} ({level})")
-                print(f"     原查询: {original}")
+                print(f"  🧠 Vector cache hit")
+                print(f"     Vector similarity: {similarity:.1%} ({level})")
+                print(f"     Original: {original}")
                 if breakdown:
-                    print(f"     方法: {breakdown.get('method', 'vector_search')} | "
-                          f"向量相似度: {breakdown.get('vector_similarity', 0):.1%}")
+                    print(f"     Method: {breakdown.get('method', 'vector_search')} | Vector similarity: {breakdown.get('vector_similarity', 0):.1%}")
 
             cached_data = copy.deepcopy(cache_result['data'])
             if isinstance(cached_data, dict):
@@ -505,7 +562,8 @@ async def search(
         brave_api_key=brave_key,
         tavily_api_key=tavily_key,
         max_results=max_results,
-        mode=mode
+        mode=mode,
+        source=source,
     )
 
     searcher = AgentSearch(search_config)

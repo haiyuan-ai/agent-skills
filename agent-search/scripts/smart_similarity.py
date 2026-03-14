@@ -431,14 +431,14 @@ if __name__ == "__main__":
     calculator = SmartSimilarity()
 
     print("=" * 70)
-    print("智能相似度算法测试")
+    print("Smart Similarity Test")
     print("=" * 70)
 
     for q1, q2 in test_cases:
         result = calculator.calculate(q1, q2)
-        print(f"\n查询1: {q1}")
-        print(f"查询2: {q2}")
-        print(f"相似度: {result['similarity']:.2%} ({result['level']})")
-        print(f"匹配: {'✅' if result['is_match'] else '❌'}")
-        print(f"分解: {result['breakdown']}")
+        print(f"\nQuery 1: {q1}")
+        print(f"Query 2: {q2}")
+        print(f"Similarity: {result['similarity']:.2%} ({result['level']})")
+        print(f"Match: {'✅' if result['is_match'] else '❌'}")
+        print(f"Breakdown: {result['breakdown']}")
         print("-" * 70)

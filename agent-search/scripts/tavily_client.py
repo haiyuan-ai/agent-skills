@@ -103,7 +103,7 @@ class TavilyClient:
 
         except Exception as e:
             get_smart_cache().record_provider_usage("tavily", success=False)
-            print(f"Tavily 搜索错误: {e}")
+            print(f"Tavily search error: {e}")
             return []
 
     async def search_with_timeout(
@@ -121,5 +121,5 @@ class TavilyClient:
                 timeout=timeout
             )
         except asyncio.TimeoutError:
-            print(f"Tavily 搜索超时 (> {timeout}s)")
+            print(f"Tavily search timeout (> {timeout}s)")
             return []

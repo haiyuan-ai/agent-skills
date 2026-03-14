@@ -97,7 +97,7 @@ class BraveClient:
 
         except Exception as e:
             get_smart_cache().record_provider_usage("brave", success=False)
-            print(f"Brave 搜索错误: {e}")
+            print(f"Brave search error: {e}")
             return []
 
     async def search_with_timeout(
@@ -112,5 +112,5 @@ class BraveClient:
                 timeout=timeout
             )
         except asyncio.TimeoutError:
-            print(f"Brave 搜索超时 (> {timeout}s)")
+            print(f"Brave search timeout (> {timeout}s)")
             return []
