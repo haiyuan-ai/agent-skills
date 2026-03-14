@@ -162,12 +162,3 @@ BING_RETRY_CONFIG = RetryConfig(
         ConnectionError,
     )
 )
-
-JINA_RETRY_CONFIG = RetryConfig(
-    max_retries=2,
-    base_delay=0.5,
-    retryable_exceptions=(
-        asyncio.TimeoutError,
-        ConnectionError,
-    )
-)

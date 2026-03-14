@@ -167,34 +167,6 @@ def get_max_queries_for_intent(intent: str, query: str) -> int:
     return 3
 
 
-def get_jina_extraction_limit(intent: str, depth: str, result_count: int) -> int:
-    if depth == "quick" or result_count <= 0:
-        return 0
-
-    intent_limits = {
-        "release": 3,
-        "status": 3,
-        "troubleshooting": 3,
-        "news": 3,
-        "comparison": 2,
-        "general": 2,
-    }
-    if depth == "deep":
-        return result_count
-    return min(result_count, intent_limits.get(intent, 2))
-
-
-def get_jina_cache_ttl(intent: str) -> int:
-    return {
-        "news": 900,
-        "status": 21600,
-        "release": 21600,
-        "troubleshooting": 86400,
-        "comparison": 86400,
-        "general": 21600,
-    }.get(intent, 21600)
-
-
 def should_early_stop(results: List[Dict], max_results: int, intent: str, query: str = "") -> bool:
     """
     判断是否满足质量要求，可以提前停止搜索。
