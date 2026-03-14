@@ -1,16 +1,16 @@
 ---
 name: pandoc-converter
 description: >
-  Convert between Markdown, Word (.docx), and PDF via pandoc. Supports
-  CJK/English, LaTeX templates, reference docx, and batch mode.
-  Trigger on: "转成 PDF/Word", "导出为", "生成 PDF", "convert to",
-  "export as", "markdown 转 word", "docx 转 markdown", pandoc mentions,
-  or any markdown/docx/pdf format conversion request.
+  Convert between Markdown, Word (.docx), HTML, and PDF via pandoc. Supports
+  CJK/English, LaTeX templates, reference docx, CSS styling, and batch mode.
+  Trigger on: "转成 PDF/Word/HTML", "导出为", "生成 PDF", "convert to",
+  "export as", "markdown 转 word/html", "docx 转 markdown", "html 转 pdf",
+  pandoc mentions, or any markdown/docx/html/pdf format conversion request.
 ---
 
 # Pandoc Document Converter
 
-Convert between Markdown, Word (.docx), and PDF with proper CJK support out of the box.
+Convert between Markdown, Word (.docx), HTML, and PDF with proper CJK support out of the box.
 
 ## Supported Conversions
 
@@ -18,26 +18,46 @@ Convert between Markdown, Word (.docx), and PDF with proper CJK support out of t
 |----------|--------------|
 | Markdown | PDF          |
 | Markdown | Word (.docx) |
+| Markdown | HTML         |
 | Word     | Markdown     |
 | Word     | PDF          |
+| HTML     | Markdown     |
+| HTML     | Word (.docx) |
+| HTML     | PDF          |
 
 PDF as input is not supported (pandoc limitation).
+
+---
 
 ## Quick Reference
 
 ```bash
-# Markdown → PDF (with Chinese support)
+# Markdown to PDF (with Chinese support)
 pandoc input.md -o output.pdf --pdf-engine=xelatex -V CJKmainfont="Source Han Sans CN"
 
-# Markdown → Word
+# Markdown to Word
 pandoc input.md -o output.docx
 
-# Word → Markdown
+# Markdown to HTML
+pandoc input.md -o output.html --standalone
+
+# Word to Markdown
 pandoc input.docx -o output.md --extract-media=./media
 
-# Word → PDF
+# Word to PDF
 pandoc input.docx -o output.pdf --pdf-engine=xelatex -V CJKmainfont="Source Han Sans CN"
+
+# HTML to Markdown
+pandoc input.html -o output.md --wrap=none
+
+# HTML to Word
+pandoc input.html -o output.docx
+
+# HTML to PDF
+pandoc input.html -o output.pdf --pdf-engine=xelatex -V CJKmainfont="Source Han Sans CN"
 ```
+
+---
 
 ## Step-by-step Workflow
 
@@ -45,7 +65,7 @@ pandoc input.docx -o output.pdf --pdf-engine=xelatex -V CJKmainfont="Source Han 
 
 From the user's request, determine:
 - **Source file(s)**: path and format
-- **Target format**: pdf, docx, or md
+- **Target format**: pdf, docx, md, or html
 - **Options**: template, styling, batch mode
 
 Verify the source file exists before proceeding.
@@ -54,121 +74,165 @@ Verify the source file exists before proceeding.
 
 Start with the base: `pandoc <input> -o <output>`
 
-Then layer on options based on the target format and user needs:
+Then layer on options based on the target format.
 
 #### PDF Output
 
-The default PDF pipeline uses xelatex for reliable CJK rendering:
-
+**Basic CJK setup**:
 ```bash
 pandoc input.md -o output.pdf \
   --pdf-engine=xelatex \
-  -V CJKmainfont="Source Han Sans CN" \
-  -V geometry:margin=2.5cm \
-  -V colorlinks=true
-```
-
-**When the user wants more control** (custom styling, academic format, specific layout), offer these LaTeX variables:
-
-```bash
-# Common useful variables
--V fontsize=12pt
--V linestretch=1.5
--V documentclass=article    # or report, book, ctexart (for Chinese-focused)
--V papersize=a4
--V toc=true                 # table of contents
--V numbersections=true
--V header-includes='\usepackage{fancyhdr}'
-```
-
-For Chinese-heavy documents, `ctexart` as documentclass gives better defaults than manually setting CJKmainfont:
-```bash
-pandoc input.md -o output.pdf \
-  --pdf-engine=xelatex \
-  -V documentclass=ctexart \
+  -V CJKmainfont="PingFang SC" \
+  -V monofont="JetBrains Mono" \
   -V geometry:margin=2.5cm
 ```
 
-**Custom LaTeX template**: if the user provides a `.tex` template:
+**Common variables**:
 ```bash
-pandoc input.md -o output.pdf --template=custom.tex --pdf-engine=xelatex
+-V fontsize=12pt
+-V linestretch=1.5
+-V documentclass=article    # or ctexart for Chinese documents
+-V papersize=a4
+-V toc=true                 # table of contents
+-V numbersections=true
 ```
+
+**Font recommendations**:
+- macOS: `PingFang SC` (system font)
+- Cross-platform: `Source Han Sans CN` / `Noto Sans CJK SC`
+- Code: `JetBrains Mono`, `Sarasa Mono SC`
+
+📚 **Detailed font configuration**: See [references/fonts.md](references/fonts.md)
 
 #### Word Output
 
-Basic conversion works well out of the box:
-
 ```bash
+# Basic
 pandoc input.md -o output.docx
-```
 
-**With a reference template** — when the user wants specific styling (fonts, headers, spacing), they provide a `.docx` reference file:
-
-```bash
+# With reference template
 pandoc input.md -o output.docx --reference-doc=reference.docx
 ```
 
-To help the user create a reference template:
+Generate a reference template:
 ```bash
-# Generate a default reference.docx the user can customize in Word
 pandoc -o custom-reference.docx --print-default-data-file reference.docx
 ```
 
-#### Markdown Output (from Word)
+#### Markdown Output
 
 ```bash
 pandoc input.docx -o output.md --extract-media=./media --wrap=none
 ```
 
-`--extract-media` pulls embedded images into a folder. `--wrap=none` avoids hard line breaks in the output.
+#### HTML Output
 
-If the user wants cleaner markdown, add `--markdown-headings=atx` (uses `#` style headings).
+```bash
+# Standalone HTML
+pandoc input.md -o output.html --standalone
+
+# With CSS
+pandoc input.md -o output.html --standalone --css=style.css
+
+# Self-contained (embed images)
+pandoc input.md -o output.html --standalone --embed-resources
+```
+
+#### HTML Input
+
+```bash
+# HTML to Markdown
+pandoc input.html -o output.md --wrap=none
+
+# HTML to PDF
+pandoc input.html -o output.pdf --pdf-engine=xelatex -V CJKmainfont="PingFang SC"
+```
 
 ### 3. Handle images and resources
 
-- For markdown with local images: pandoc resolves relative paths from the source file's directory. Run pandoc from that directory or use `--resource-path`.
-- For Word → Markdown: always use `--extract-media` so images aren't lost.
-- For PDF output with images: xelatex handles most image formats. If an image fails, check the path is correct relative to where pandoc runs.
+- For markdown with local images: use `--resource-path` if needed
+- For Word to Markdown: always use `--extract-media`
+- For PDF with images: xelatex handles most formats
 
 ### 4. Run and verify
 
-Execute the command. If it succeeds, confirm the output file exists and report its size. If it fails:
+Execute the command. Common issues:
 
-- **xelatex not found**: suggest `brew install --cask mactex` or `brew install basictex`
-- **Font not found**: list available CJK fonts with `fc-list :lang=zh` and pick one
-- **Missing package**: for LaTeX package errors, suggest `tlmgr install <package>`
+| Issue | Solution |
+|-------|----------|
+| xelatex not found | `brew install --cask mactex` |
+| Font not found | `fc-list :lang=zh` to list available fonts |
+| Missing LaTeX package | `tlmgr install <package>` |
 
 ### 5. Batch conversion
 
-When the user wants to convert multiple files, use a simple loop:
-
 ```bash
-# Convert all .md files in a directory to PDF
-for f in /path/to/dir/*.md; do
-  pandoc "$f" -o "${f%.md}.pdf" --pdf-engine=xelatex -V CJKmainfont="Source Han Sans CN"
-done
+# All .md to PDF
+for f in *.md; do pandoc "$f" -o "${f%.md}.pdf" --pdf-engine=xelatex -V CJKmainfont="PingFang SC"; done
 
-# Convert all .docx files to markdown
-for f in /path/to/dir/*.docx; do
-  pandoc "$f" -o "${f%.docx}.md" --extract-media="./media/$(basename "${f%.docx}")" --wrap=none
-done
+# All .docx to Markdown
+for f in *.docx; do pandoc "$f" -o "${f%.docx}.md" --extract-media=./media --wrap=none; done
+
+# All .md to HTML
+for f in *.md; do pandoc "$f" -o "${f%.md}.html" --standalone; done
 ```
 
-For batch mode, report progress as each file completes.
+---
+
+## Advanced Features
+
+The following features are documented in separate reference files:
+
+| Feature | Description | Reference |
+|---------|-------------|-----------|
+| **Font Configuration** | CJK fonts, fallback, code fonts | [references/fonts.md](references/fonts.md) |
+| **Syntax Highlighting** | Code themes, language support | [references/syntax-highlighting.md](references/syntax-highlighting.md) |
+| **Math** | LaTeX equations, MathJax, KaTeX | [references/math.md](references/math.md) |
+| **PDF Features** | Metadata, frontmatter, watermarks | [references/pdf-features.md](references/pdf-features.md) |
+| **Advanced** | Citations, multi-file, GFM, Lua filters | [references/advanced.md](references/advanced.md) |
+
+---
 
 ## Common Pitfalls
 
-- **Garbled Chinese in PDF**: always use `--pdf-engine=xelatex` with a CJK font. Never use the default pdflatex for CJK content.
-- **Word styles look wrong**: the default docx output is plain. If styling matters, use `--reference-doc`.
-- **Images missing in markdown output**: forgot `--extract-media`.
-- **PDF margins too tight**: add `-V geometry:margin=2.5cm` or adjust as needed.
+- **Garbled Chinese text in PDF**: Always use `--pdf-engine=xelatex` with a CJK font
+- **Word styles look wrong**: Use `--reference-doc` for custom styling
+- **Images missing in Markdown output**: Add `--extract-media`
+- **PDF margins too tight**: Add `-V geometry:margin=2.5cm`
+- **HTML lacks styles**: Use `--standalone`
+- **HTML images not showing**: Use `--embed-resources` to inline images
+- **Citations not rendering**: Ensure `--citeproc` is included
+- **Math not rendering in HTML**: Add `--mathjax` or `--katex`
+
+---
+
+## Tips & Tricks
+
+**Dry run**: Add `--verbose` to see what pandoc is doing.
+
+**List supported formats**:
+```bash
+pandoc --list-input-formats
+pandoc --list-output-formats
+```
+
+**Check template**:
+```bash
+pandoc --print-default-template=latex
+```
+
+**Self-contained HTML**: Use `--embed-resources --standalone` for single-file distribution.
+
+---
 
 ## Output Naming Convention
 
-Unless the user specifies an output path, place the output in the same directory as the input, with the same base name and the new extension. For example, `notes.md` → `notes.pdf`.
+Unless the user specifies an output path, place the output in the same directory as the input, with the same base name and the new extension.
+
+---
 
 ## Safety
 
-- Before writing output, check if the target file already exists. If it does, inform the user and ask before overwriting.
-- Never use user-provided paths in shell commands without quoting. All variables in batch loops must be double-quoted.
-- This skill only reads source files and writes converted output. It must not delete, move, or modify the original input files.
+- Check if target file exists before overwriting
+- Always quote paths in shell commands
+- Only read source files and write output; never modify originals
