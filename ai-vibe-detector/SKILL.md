@@ -33,6 +33,8 @@ Do not frame the task as:
 3. 如果无法抓取，提示用户手动粘贴文章内容
 4. 将提取的正文作为待分析文本，进入下面的分析流程
 
+### 1. Analysis Steps
+
 1. 获取待分析文本，先区分正文、引用、代码、命令、提示词和模板内容。
 2. 判断文本类型：
 - 叙述 / 观点文
@@ -53,6 +55,8 @@ Do not frame the task as:
 Use this output structure by default:
 
 ```text
+（如有 3+ 段落，先输出分段分析，见下方 Paragraph-Level Analysis）
+
 结论：更像 AI 风格化写作 / 更像 AI 润色痕迹 / 更像人工原生写作 / 证据不足
 置信度：低 / 中 / 高
 误判风险：低 / 中 / 高
@@ -67,7 +71,7 @@ Use this output structure by default:
 2. ...
 
 如果要改：
-- 优先改哪些位置
+- 优先改 🔴 段落（如有分段分析）
 - 为什么这些位置最像模板化表达
 - 给 1-3 个局部改写示例
 ```
@@ -134,6 +138,7 @@ Before calling something “AI 味重”, check whether the style is explained b
 - 代码、命令、表格、清单
 - 用户给模型的 prompt，而不是最终成文
 - 人写后被工具轻度润色，而不是纯 AI 生成
+- 翻译文本（措辞均匀、缺乏口语痕迹是翻译的正常特征，不等于 AI 生成）
 
 ## Decision Labels
 
@@ -175,7 +180,8 @@ For this case, add:
 ## Rewrite Guidance
 
 If the user asks to humanize the text:
-- 优先删“空泛总结”和“万能连接词”
+- 如有分段分析结果，优先改写 🔴 高风险段落
+- 优先删”空泛总结”和”万能连接词”
 - 保留原文观点，不靠随机口语词堆砌
 - 增加可验证的细节、具体对象、具体动作
 - 允许节奏不完全对称
