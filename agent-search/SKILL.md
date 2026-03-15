@@ -72,11 +72,18 @@ Intent priority: release → troubleshooting → comparison → news → status 
 - Don't trigger if user explicitly disables web search
 - Use native tool if user explicitly specifies a search source
 
+## Provenance And Trust Boundary
+
+- `agent-search-cli` is the plaintext local script at `scripts/agent-search-cli` in this repository, not a compiled binary or opaque external executable.
+- Search provider clients are local source files: `scripts/tavily_client.py`, `scripts/brave_client.py`, `scripts/exa_client.py`, `scripts/ddgs_client.py`.
+- Runtime dependencies are limited to pinned packages in `scripts/requirements.txt`.
+- API keys are only forwarded to the configured search provider and are not logged into result output.
+
 ## Content Safety Model
 
 - **Snippet-only**: Only search-provider snippets are used. No runtime full-page extraction from third-party URLs.
 - **Untrusted by default**: All provider content is marked `content_trust: untrusted-third-party` with a `safety_notice` field.
-- **No snippet influence on routing**: Domain discovery, brand matching, and follow-up query generation use only URL/domain/title — never snippet text.
+- **Metadata-only decisions**: Domain discovery, brand matching, follow-up query generation, scoring, and reranking use only trusted metadata such as URL/domain/title/date/source. Snippet text is display-only.
 - **Injection filtering**: Known prompt injection patterns (EN/ZH) are stripped; dangerous URI schemes are rejected.
 
 ## Output Constraints (Anti-Hallucination)

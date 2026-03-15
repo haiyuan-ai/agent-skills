@@ -15,7 +15,7 @@ agent-search is a CLI tool that queries third-party search APIs (Brave, Tavily, 
 ### What it does NOT do
 
 - **No full-page extraction**: No runtime fetching of third-party page content. Only search-provider snippets are used.
-- **No snippet-driven routing**: Domain discovery, brand matching, and follow-up query generation use only URL/domain/title fields — never snippet text content. This prevents attackers from influencing search routing by embedding keywords in page body.
+- **Metadata-only decisions**: Domain discovery, brand matching, follow-up query generation, scoring, and reranking use only URL/domain/title/date/source metadata — never snippet text content. This prevents attackers from influencing retrieval decisions by embedding keywords in page body.
 - **No code execution from results**: Search results are data only; no field is evaluated or executed.
 
 ## Injection defense (content_safety.py)

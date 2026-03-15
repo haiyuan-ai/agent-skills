@@ -19,6 +19,14 @@ npx skills add haiyuan-ai/agent-skills@agent-search
 - Smart cache: SQLite-backed persistent cache with exact, similarity, and vector matching
 - Structured output: CLI supports `--json` for agent-friendly consumption
 
+## Provenance And Trust Boundary
+
+- `agent-search-cli` is the plaintext script at [`scripts/agent-search-cli`](./scripts/agent-search-cli), kept in this repository and reviewable before execution.
+- Search providers are accessed through local source modules in `scripts/`; there is no opaque bundled binary.
+- Runtime dependencies are pinned in [`scripts/requirements.txt`](./scripts/requirements.txt).
+- API keys are only sent to the configured provider and are not emitted in CLI output or cached result bodies.
+- Untrusted third-party snippet text is sanitized and returned for preview only. Routing, scoring, and reranking decisions use trusted metadata only.
+
 ## Search Strategy
 
 Agent Search detects query intent automatically and uses different strategies for different scenarios.

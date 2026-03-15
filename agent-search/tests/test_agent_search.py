@@ -110,10 +110,34 @@ class TestQualityScorer:
         }
         assert QualityScorer.extract_embedded_date(english_date_result) == "2026-03-10"
 
-    def test_calculate_content_completeness(self):
-        assert QualityScorer.calculate_content_completeness("a" * 100) == 0.3
-        assert QualityScorer.calculate_content_completeness("a" * 1500) == 0.7
-        assert QualityScorer.calculate_content_completeness("a" * 6000) == 1.0
+    def test_calculate_metadata_completeness(self):
+        result = {
+            "title": "Vendor release note",
+            "url": "https://vendor.example.com/releases/1",
+            "published_date": "2026-03-10",
+            "author": "Vendor",
+            "source": "tavily",
+            "position": 1,
+            "score": 0.8,
+        }
+        assert QualityScorer.calculate_metadata_completeness(result) == 1.0
+
+    def test_metadata_completeness_should_ignore_snippet_length(self):
+        short = {
+            "title": "Vendor release note",
+            "url": "https://vendor.example.com/releases/1",
+            "published_date": "2026-03-10",
+            "source": "tavily",
+            "text": "short",
+        }
+        long = {
+            **short,
+            "text": "a" * 5000,
+        }
+        assert (
+            QualityScorer.calculate_metadata_completeness(short)
+            == QualityScorer.calculate_metadata_completeness(long)
+        )
 
     def test_score(self):
         result = {

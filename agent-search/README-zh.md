@@ -19,6 +19,14 @@ npx skills add haiyuan-ai/agent-skills@agent-search
 - 智能缓存: SQLite 持久化缓存，支持精确 / 相似 / 向量匹配
 - 结构化输出: CLI 支持 `--json`，适合 Agent 消费
 
+## 来源与信任边界
+
+- `agent-search-cli` 是仓库内的明文脚本 [`scripts/agent-search-cli`](./scripts/agent-search-cli)，不是编译后的二进制，也不是来源不明的外部可执行文件。
+- 搜索提供方接入都通过 `scripts/` 下的本地源码模块完成，没有不透明的打包程序。
+- 运行时依赖固定在 [`scripts/requirements.txt`](./scripts/requirements.txt)。
+- API Key 只会发给已配置的搜索提供方，不会出现在 CLI 输出里，也不会被写入搜索结果内容。
+- 第三方 snippet 会先清洗，再仅作为预览返回；路由、评分和 rerank 只使用 URL、domain、title、date、source 等可信元数据。
+
 ## 搜索策略
 
 Agent Search 会自动识别查询意图，并按不同意图使用不同搜索策略。

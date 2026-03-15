@@ -134,10 +134,6 @@ class QualityScorer:
     def _title_lower(result: Dict) -> str:
         return result.get("title", "").lower()
 
-    @staticmethod
-    def _text_lower(result: Dict) -> str:
-        return result.get("text", "").lower()
-
     is_freshness_sensitive_query = staticmethod(is_freshness_sensitive_query)
 
     @classmethod
@@ -333,7 +329,6 @@ class QualityScorer:
     def _intent_bonus(cls, result: Dict, intent: str, query: str = "") -> float:
         url = cls._url_lower(result)
         title = cls._title_lower(result)
-        text = cls._text_lower(result)
         bonus = 0.0
 
         if cls._is_fresh_update_intent(intent):
@@ -450,20 +445,28 @@ class QualityScorer:
             return 0.5
 
     @classmethod
-    def calculate_content_completeness(cls, text: str) -> float:
-        """计算内容完整度"""
-        length = len(text)
+    def calculate_metadata_completeness(cls, result: Dict) -> float:
+        """Estimate completeness from trusted metadata only."""
+        score = 0.35
 
-        if length < 500:
-            return 0.3
-        elif length < 1000:
-            return 0.5
-        elif length < 2000:
-            return 0.7
-        elif length < 5000:
-            return 0.85
-        else:
-            return 1.0
+        if result.get("title"):
+            score += 0.2
+        if result.get("url"):
+            score += 0.2
+        if cls._effective_published_date(result):
+            score += 0.15
+        if result.get("author"):
+            score += 0.05
+        if result.get("source"):
+            score += 0.05
+        if result.get("position"):
+            score += 0.05
+
+        original_score = result.get("score")
+        if isinstance(original_score, (int, float)) and original_score > 0:
+            score += 0.05
+
+        return min(round(score, 4), 1.0)
 
     @classmethod
     def score(cls, result: Dict) -> Dict:
@@ -473,18 +476,17 @@ class QualityScorer:
         权重:
         - 来源权威性: 30%
         - 时效性: 30%
-        - 内容完整度: 20%
+        - 元数据完整度: 20%
         - 原始相关性分数: 20%
         """
         url = result.get("url", "")
-        text = result.get("text", "")
         published_date = cls._effective_published_date(result)
         original_score = result.get("score", 0.5)
 
         # 各维度分数
         authority = cls.get_source_authority(url)
         freshness = cls.calculate_freshness_score(published_date)
-        completeness = cls.calculate_content_completeness(text)
+        completeness = cls.calculate_metadata_completeness(result)
 
         # 加权计算
         final_score = (
