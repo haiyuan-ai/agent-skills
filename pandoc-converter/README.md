@@ -30,8 +30,8 @@ Verify: `pandoc --version` (requires 3.0+)
 
 | OS      | Command                                   | Notes                        |
 |---------|-------------------------------------------|------------------------------|
-| macOS   | `brew install --cask mactex`              | Full install (~4 GB)         |
-| macOS   | `brew install basictex`                   | Minimal (~100 MB), may need `tlmgr install` for extra packages |
+| macOS   | `brew install --cask mactex`              | **Recommended**, full install (~4 GB) with CJK support |
+| macOS   | `brew install basictex`                   | Minimal (~100 MB), requires manual CJK install: `sudo tlmgr install xeCJK ctex collection-xetex` |
 | Ubuntu  | `sudo apt install texlive-xetex texlive-lang-chinese` | xelatex + CJK support |
 | Windows | Install [MiKTeX](https://miktex.org/) or [TeX Live](https://tug.org/texlive/) | Enable auto-install for missing packages |
 
@@ -45,6 +45,7 @@ Verify: `xelatex --version`
 | macOS   | Source Han Sans CN      | `brew install --cask font-source-han-sans`  |
 | Ubuntu  | Noto Sans CJK SC        | `sudo apt install fonts-noto-cjk`           |
 | Windows | SimSun / Microsoft YaHei | Pre-installed on Chinese Windows            |
+| Windows | Source Han Sans CN      | https://github.com/adobe-fonts/source-han-sans/releases |
 
 Verify: `fc-list :lang=zh | head -3`
 
@@ -54,8 +55,8 @@ Verify: `fc-list :lang=zh | head -3`
 # Markdown to PDF (Chinese-ready)
 pandoc input.md -o output.pdf --pdf-engine=xelatex -V CJKmainfont="PingFang SC"
 
-# Markdown to Word
-pandoc input.md -o output.docx
+# Markdown to Word (with built-in reference.docx for proper fonts)
+pandoc input.md -o output.docx --reference-doc=~/.agents/skills/pandoc-converter/references/reference.docx
 
 # Markdown to HTML
 pandoc input.md -o output.html --standalone
@@ -122,43 +123,51 @@ The skill handles CJK font selection, LaTeX engine configuration, image extracti
 - **Cross-platform**: `Source Han Sans CN`, `Noto Sans CJK SC`
 
 ### Code Fonts
+- **CJK-aware monospace**: `Sarasa Fixed SC` (更纱黑体，2:1 CJK alignment)
 - **Western**: `JetBrains Mono`, `Fira Code` (with ligatures)
-- **CJK**: `Sarasa Mono SC` (2:1 alignment), `Noto Sans Mono CJK SC`
+- **CJK fallback**: `Noto Sans Mono CJK SC`
 
 Install via Homebrew:
 ```bash
-brew install --cask font-jetbrains-mono font-sarasa-gothic font-source-han-sans
+brew install --cask font-source-han-sans font-sarasa-gothic
 ```
+
+**Windows users**: Download and install manually:
+- **Source Han Sans CN**: https://github.com/adobe-fonts/source-han-sans/releases
+- **Sarasa Gothic**: https://github.com/be5invis/Sarasa-Gothic/releases
+
+---
+
+## ASCII Art in Word
+
+If your Markdown contains ASCII diagrams or tables, run the pre-processor before converting to Word:
+
+```bash
+# Fix ASCII art alignment (pad trailing spaces)
+python3 ~/.agents/skills/pandoc-converter/scripts/fix-ascii-art.py input.md
+
+# Then convert
+pandoc input.md -o output.docx \
+  --reference-doc=~/.agents/skills/pandoc-converter/references/reference.docx
+```
+
+**Why**: Word requires equal line widths in monospace blocks for proper box rendering.
+
+See [references/fonts.md](references/fonts.md#ascii-art-alignment) for details.
 
 ## Examples
 
-### Academic Paper
 ```bash
-pandoc paper.md -o paper.pdf \
-  --pdf-engine=xelatex \
+# Academic paper with citations
+pandoc paper.md -o paper.pdf --pdf-engine=xelatex \
   -V CJKmainfont="Source Han Serif SC" \
-  -V monofont="JetBrains Mono" \
-  --bibliography=references.bib \
-  --citeproc \
-  --highlight-style=tango \
-  -V toc=true
-```
+  --bibliography=references.bib --citeproc
 
-### Self-Contained HTML
-```bash
-pandoc input.md -o output.html \
-  --standalone \
-  --embed-resources \
-  --mathjax \
-  --highlight-style=monochrome
-```
+# Self-contained HTML
+pandoc input.md -o output.html --standalone --embed-resources
 
-### Batch Conversion
-```bash
-# Convert all markdown files to PDF
-for f in *.md; do
-  pandoc "$f" -o "${f%.md}.pdf" --pdf-engine=xelatex -V CJKmainfont="PingFang SC"
-done
+# Batch: all .md to PDF
+for f in *.md; do pandoc "$f" -o "${f%.md}.pdf" --pdf-engine=xelatex -V CJKmainfont="PingFang SC"; done
 ```
 
 ## License

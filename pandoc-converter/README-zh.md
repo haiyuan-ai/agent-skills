@@ -30,8 +30,8 @@
 
 | 系统    | 安装命令                                     | 说明                          |
 |---------|----------------------------------------------|-------------------------------|
-| macOS   | `brew install --cask mactex`                 | 完整安装（约 4 GB）          |
-| macOS   | `brew install basictex`                      | 精简版（约 100 MB），可能需要 `tlmgr install` 补装包 |
+| macOS   | `brew install --cask mactex`                 | **推荐**，完整安装（约 4 GB），含 CJK 支持 |
+| macOS   | `brew install basictex`                      | 精简版（约 100 MB），需额外安装 CJK 包：`sudo tlmgr install xeCJK ctex collection-xetex` |
 | Ubuntu  | `sudo apt install texlive-xetex texlive-lang-chinese` | xelatex + 中文支持    |
 | Windows | 安装 [MiKTeX](https://miktex.org/) 或 [TeX Live](https://tug.org/texlive/) | 建议开启自动安装缺失包 |
 
@@ -45,6 +45,7 @@
 | macOS   | 思源黑体 CN           | `brew install --cask font-source-han-sans`  |
 | Ubuntu  | Noto Sans CJK SC      | `sudo apt install fonts-noto-cjk`          |
 | Windows | 宋体 / 微软雅黑       | 中文 Windows 系统自带                       |
+| Windows | 思源黑体 CN           | https://github.com/adobe-fonts/source-han-sans/releases |
 
 验证：`fc-list :lang=zh | head -3`
 
@@ -54,24 +55,106 @@
 # Markdown → PDF（中文就绪）
 pandoc input.md -o output.pdf --pdf-engine=xelatex -V CJKmainfont="PingFang SC"
 
-# Markdown → Word
-pandoc input.md -o output.docx
+# Markdown → PDF（推荐：优化字体和布局）
+pandoc input.md -o output.pdf --pdf-engine=xelatex \
+  -H <(cat << 'EOF'
+\usepackage{xeCJK}
+\setCJKmainfont{PingFang SC}
+\setCJKmonofont{Sarasa Fixed SC}
+\setmonofont{Sarasa Fixed SC}
+\usepackage{geometry}
+\geometry{margin=1.5cm,a4paper}
+EOF
+)
 
-# Markdown → HTML
-pandoc input.md -o output.html --standalone
+# Markdown → Word（使用预设字体配置）
+pandoc input.md -o output.docx --reference-doc=~/.agents/skills/pandoc-converter/references/reference.docx
 
-# Word → Markdown（自动提取图片）
-pandoc input.docx -o output.md --extract-media=./media --wrap=none
-
-# Word → PDF
-pandoc input.docx -o output.pdf --pdf-engine=xelatex -V CJKmainfont="PingFang SC"
-
-# HTML → Markdown
-pandoc input.html -o output.md --wrap=none
-
-# HTML → PDF
-pandoc input.html -o output.pdf --pdf-engine=xelatex -V CJKmainfont="PingFang SC"
+# 使用优化脚本（推荐）
+bash ~/.agents/skills/pandoc-converter/scripts/convert-to-pdf.sh input.md
 ```
+
+### 字体说明
+
+Skill 内置 `reference.docx` 模板，默认字体配置：
+- **中文**：思源黑体 CN
+- **英文**：Times New Roman
+- **代码**：Sarasa Fixed SC（更纱黑体）
+
+安装推荐字体：
+```bash
+# macOS
+brew install --cask font-source-han-sans font-sarasa-gothic
+
+# Ubuntu/Debian
+sudo apt install fonts-noto-cjk fonts-sarasa-gothic
+
+# Windows
+# 思源黑体：https://github.com/adobe-fonts/source-han-sans/releases
+# 更纱黑体：https://github.com/be5invis/Sarasa-Gothic/releases
+```
+
+### ASCII 图形对齐
+
+如果 Markdown 中包含 ASCII 表格/图形，转换前建议运行预处理：
+
+```bash
+# 自动补齐尾随空格，确保右边框对齐
+python3 ~/.agents/skills/pandoc-converter/scripts/fix-ascii-art.py input.md
+
+# 然后转换
+pandoc input.md -o output.docx \
+  --reference-doc=~/.agents/skills/pandoc-converter/references/reference.docx
+```
+
+**原理**：Word 中等宽字体渲染要求 ASCII 框的每行字符数一致（包括尾随空格）。
+
+### PDF 优化建议
+
+**字体大小**：
+- 默认 LaTeX 使用 10pt，偏小
+- **推荐 11pt**：适合技术文档，阅读舒适
+- 12pt：适合打印或视力不佳的读者
+
+```bash
+-V fontsize=11pt  # 在转换脚本中已默认使用
+```
+
+**代码块等宽字体**：必须显式设置 `\setCJKmonofont`，否则中文代码块可能不使用等宽字体：
+
+```latex
+\usepackage{xeCJK}
+\setCJKmainfont{PingFang SC}      # 中文正文
+\setCJKmonofont{Sarasa Fixed SC}  # 中文等宽（代码块）
+\setmonofont{Sarasa Fixed SC}     # 英文等宽
+```
+
+**表格宽度**：默认 LaTeX 表格居中且较窄，可通过以下方式改善：
+- 减小页边距：`\geometry{margin=1.5cm}`（默认约 2.5cm）
+- 表格会自动适应可用宽度
+
+**ASCII 图形对齐排查**：
+
+如果在 Obsidian 中对齐但 PDF/Word 中不对齐：
+
+```bash
+# 1. 检查源文件
+python3 ~/.agents/skills/pandoc-converter/scripts/fix-ascii-art.py input.md --check
+
+# 2. 如有问题，自动修复
+python3 ~/.agents/skills/pandoc-converter/scripts/fix-ascii-art.py input.md
+
+# 3. 重新转换 PDF
+bash ~/.agents/skills/pandoc-converter/scripts/convert-to-pdf.sh input.md
+```
+
+**推荐工作流**：
+```bash
+# 一键转换（推荐）
+bash ~/.agents/skills/pandoc-converter/scripts/convert-to-pdf.sh input.md
+```
+
+📚 **详细文档**：[references/tables.md](references/tables.md) | [references/fonts.md](references/fonts.md)
 
 ## 在 Claude Code 中使用
 
@@ -107,9 +190,8 @@ claude install-skill https://github.com/yourusername/pandoc-converter
 
 ### 核心参考
 - **[SKILL.md](./SKILL.md)** - 主要工作流和快速参考
-
-### 进阶主题
 - **[references/fonts.md](./references/fonts.md)** - 中英文字体配置、多字体回退、代码字体
+- **[references/tables.md](./references/tables.md)** - 表格优化最佳实践
 - **[references/syntax-highlighting.md](./references/syntax-highlighting.md)** - 代码高亮主题、语言支持
 - **[references/math.md](./references/math.md)** - LaTeX 公式、MathJax、KaTeX
 - **[references/pdf-features.md](./references/pdf-features.md)** - 元数据、水印、页眉页脚、前置元数据
@@ -132,33 +214,17 @@ brew install --cask font-jetbrains-mono font-sarasa-gothic font-source-han-sans
 
 ## 示例
 
-### 学术论文
 ```bash
-pandoc paper.md -o paper.pdf \
-  --pdf-engine=xelatex \
+# 学术论文（带参考文献）
+pandoc paper.md -o paper.pdf --pdf-engine=xelatex \
   -V CJKmainfont="Source Han Serif SC" \
-  -V monofont="JetBrains Mono" \
-  --bibliography=references.bib \
-  --citeproc \
-  --highlight-style=tango \
-  -V toc=true
-```
+  --bibliography=references.bib --citeproc
 
-### 独立 HTML
-```bash
-pandoc input.md -o output.html \
-  --standalone \
-  --embed-resources \
-  --mathjax \
-  --highlight-style=monochrome
-```
+# 独立 HTML（内嵌图片）
+pandoc input.md -o output.html --standalone --embed-resources
 
-### 批量转换
-```bash
-# 转换所有 markdown 文件为 PDF
-for f in *.md; do
-  pandoc "$f" -o "${f%.md}.pdf" --pdf-engine=xelatex -V CJKmainfont="PingFang SC"
-done
+# 批量转换
+for f in *.md; do pandoc "$f" -o "${f%.md}.pdf" --pdf-engine=xelatex -V CJKmainfont="PingFang SC"; done
 ```
 
 ## 许可证
