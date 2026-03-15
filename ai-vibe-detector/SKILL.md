@@ -1,7 +1,7 @@
 ---
 name: ai-vibe-detector
 description: >-
-  分析文本中的 AI 风格信号、误判风险和自然化改写方向。触发词：检查 AI 味/检测 AI 味/分析 AI 味/AI 味道/AI 味重/去 AI 味/改得像人写的/是否像 AI 写的/朱雀检测。Use when the user wants to assess whether text sounds AI-generated, identify AI-style writing signals, humanize wording, or understand detector risk. Do not use this skill to promise bypassing or defeating AI detectors.
+  分析文本中的 AI 风格信号、误判风险和自然化改写方向。支持文本或 URL 输入。触发词：AI 味/去 AI 味/改得像人写的/是否像 AI 写的/朱雀检测。Analyze text for AI-style signals, humanize wording, assess detector risk. Not for bypassing detectors.
 ---
 
 # AI Vibe Detector
@@ -15,7 +15,8 @@ Trigger this skill when the user:
 - 问“这篇文章 AI 味重吗”
 - 需要去 AI 化或改得更自然
 - 想知道某段文字会不会被 AI 检测器误伤
-- 提到“朱雀检测”“AI 检测风险”等平台或检测场景
+- 提到”朱雀检测””AI 检测风险”等平台或检测场景
+- 提供了一个 URL，要求分析该文章的 AI 味
 
 Do not frame the task as:
 - 保证通过 AI 检测
@@ -23,6 +24,14 @@ Do not frame the task as:
 - 证明文本一定是 AI 或一定是人写
 
 ## Core Workflow
+
+### 0. Input Handling
+
+如果用户提供的是 URL 而非文本：
+1. 使用当前环境中可用的网页抓取能力获取页面内容
+2. 提取正文部分（忽略导航、侧栏、广告等非正文内容）
+3. 如果无法抓取，提示用户手动粘贴文章内容
+4. 将提取的正文作为待分析文本，进入下面的分析流程
 
 1. 获取待分析文本，先区分正文、引用、代码、命令、提示词和模板内容。
 2. 判断文本类型：
@@ -62,6 +71,22 @@ Use this output structure by default:
 - 为什么这些位置最像模板化表达
 - 给 1-3 个局部改写示例
 ```
+
+### Paragraph-Level Analysis
+
+When text has 3+ paragraphs, or when the user requests detailed analysis, add per-paragraph breakdown:
+
+```text
+分段分析：
+🔴 高 | 第3段：总而言之，人工智能技术的快速发展为各行各业带来了...
+       → 触发：模板化开头 + 空泛总结 + 连接词密度高
+🟡 中 | 第1段：最近在搞一个 side project，用 Claude 帮我写了...
+       → 触发：情绪过稳、段落收束句
+🟢 低 | 第2段：上周三凌晨三点，服务器炸了，我翻了半小时日志...
+       → 具体细节多，节奏自然
+```
+
+Place this before the overall conclusion. Rewrite suggestions should target 🔴 paragraphs first.
 
 If the user explicitly wants a score, use a secondary score only:
 - `AI 风格风险：0-10`
