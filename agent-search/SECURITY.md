@@ -1,10 +1,12 @@
 # Security Model
 
+This document describes the skill's security model and trust boundaries for reviewers and automated security analysis.
+
 ## Architecture
 
-agent-search is a CLI tool that queries third-party search APIs (Brave, Tavily, Exa) and returns structured, sanitized snippets. It is designed to be invoked by AI agents (Claude Code, etc.) as a skill.
+agent-search is a CLI skill that queries third-party search APIs (Brave, Tavily, Exa, DDGS) and returns structured, sanitized snippets for agent consumption.
 
-## Content trust boundary
+## Trust Boundary
 
 ### What it does
 
@@ -15,7 +17,8 @@ agent-search is a CLI tool that queries third-party search APIs (Brave, Tavily, 
 ### What it does NOT do
 
 - **No full-page extraction**: No runtime fetching of third-party page content. Only search-provider snippets are used.
-- **Metadata-only decisions**: Domain discovery, brand matching, follow-up query generation, scoring, and reranking use only URL/domain/title/date/source metadata — never snippet text content. This prevents attackers from influencing retrieval decisions by embedding keywords in page body.
+- **Untrusted preview text**: Returned snippet text is untrusted third-party preview content, not executable instructions.
+- **Metadata-only decisions**: Domain discovery, brand matching, follow-up query generation, scoring, and reranking use only URL/domain/title/date/source metadata, never snippet text content. This limits attacker influence on retrieval decisions.
 - **No code execution from results**: Search results are data only; no field is evaluated or executed.
 
 ## Injection defense (content_safety.py)
@@ -32,15 +35,14 @@ agent-search is a CLI tool that queries third-party search APIs (Brave, Tavily, 
 
 ## Supply chain
 
-- `agent-search-cli` is a plaintext Python script in this repository, not a compiled binary or system-installed package.
-- All search client modules (`brave_client.py`, `tavily_client.py`, `exa_client.py`) are local source files, not external packages.
-- Runtime dependency: `aiohttp` pinned to exact version in `requirements.txt` for reproducibility.
+- `agent-search-cli` is a local plaintext Python script in this repository, not a compiled binary or opaque bundled executable.
+- Search provider integrations (`brave_client.py`, `tavily_client.py`, `exa_client.py`, `ddgs_client.py`) are local source files.
 - API keys are read from environment variables or `.env` files; they are never logged, cached, or transmitted beyond their respective search provider.
 
 ## Residual risks
 
-- **Indirect prompt injection via snippets**: Search snippets pass through injection filtering but the filter is pattern-based and not exhaustive. Consuming agents should treat all `content` and `text` fields as untrusted user input.
-- **Third-party API trust**: Results depend on Brave/Tavily/Exa APIs. If a provider is compromised, crafted results could reach the agent. The sanitization layer mitigates but does not eliminate this risk.
+- **Indirect prompt injection via snippets**: Search snippets pass through injection filtering, but the filter is pattern-based and not exhaustive. Consuming agents should treat all `content` and `text` fields as untrusted input. This risk is mitigated, not eliminated.
+- **Third-party API trust**: Results depend on external search providers. If a provider is compromised, crafted results could still reach the agent. The sanitization layer mitigates but does not eliminate this risk.
 
 ## Reporting
 
