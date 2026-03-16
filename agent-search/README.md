@@ -39,17 +39,9 @@ For better multi-source results, configure `TAVILY_API_KEY`.
 
 ## Dependencies
 
-```bash
-pip install -r scripts/requirements.txt
-```
-
-Recommended: Python 3.12+.
-
-To run tests, also install:
-
-```bash
-pip install pytest
-```
+- Runtime: `pip install -r scripts/requirements.txt`
+- Tests: `pip install pytest`
+- Recommended: Python 3.12+
 
 ## Configuration
 

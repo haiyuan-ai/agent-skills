@@ -39,17 +39,9 @@ pip install -r scripts/requirements.txt
 
 ## 依赖
 
-```bash
-pip install -r scripts/requirements.txt
-```
-
-推荐 Python 3.12+。
-
-运行测试还需要：
-
-```bash
-pip install pytest
-```
+- 运行依赖: `pip install -r scripts/requirements.txt`
+- 测试依赖: `pip install pytest`
+- 推荐 Python 3.12+
 
 ## 配置
 
