@@ -8,15 +8,12 @@ import asyncio
 import copy
 import contextlib
 from datetime import datetime
-from typing import List, Dict, Optional, Literal
+from typing import TYPE_CHECKING, Any, List, Dict, Optional, Literal
 from dataclasses import dataclass
 
 STRATEGY_VERSION = "v24"
 
 try:
-    from .exa_client import ExaClient
-    from .brave_client import BraveClient
-    from .tavily_client import TavilyClient
     from .ddgs_client import DdgsClient
     from .content_safety import apply_content_safety
     from .fresh_update_strategy import (
@@ -53,9 +50,6 @@ try:
     from .config import get_api_key, get_config
     from .smart_cache import get_smart_cache
 except ImportError:
-    from exa_client import ExaClient
-    from brave_client import BraveClient
-    from tavily_client import TavilyClient
     from ddgs_client import DdgsClient
     from content_safety import apply_content_safety
     from fresh_update_strategy import (
@@ -91,6 +85,16 @@ except ImportError:
     )
     from config import get_api_key, get_config
     from smart_cache import get_smart_cache
+
+if TYPE_CHECKING:
+    try:
+        from .exa_client import ExaClient
+        from .brave_client import BraveClient
+        from .tavily_client import TavilyClient
+    except ImportError:
+        from exa_client import ExaClient
+        from brave_client import BraveClient
+        from tavily_client import TavilyClient
 
 
 @dataclass
@@ -139,6 +143,30 @@ def _start_cache_warmup(cache, cache_id: Optional[int], query: str) -> None:
     task.add_done_callback(_consume_error)
 
 
+def _get_exa_client_cls():
+    try:
+        from .exa_client import ExaClient
+    except ImportError:
+        from exa_client import ExaClient
+    return ExaClient
+
+
+def _get_brave_client_cls():
+    try:
+        from .brave_client import BraveClient
+    except ImportError:
+        from brave_client import BraveClient
+    return BraveClient
+
+
+def _get_tavily_client_cls():
+    try:
+        from .tavily_client import TavilyClient
+    except ImportError:
+        from tavily_client import TavilyClient
+    return TavilyClient
+
+
 class AgentSearch:
     """Agent Search 主类"""
 
@@ -148,9 +176,9 @@ class AgentSearch:
     async def search_single(
         self,
         query: str,
-        exa: Optional['ExaClient'] = None,
-        brave: Optional['BraveClient'] = None,
-        tavily: Optional['TavilyClient'] = None,
+        exa: Optional[Any] = None,
+        brave: Optional[Any] = None,
+        tavily: Optional[Any] = None,
         intent: str = "general",
     ) -> List[Dict]:
         """
@@ -286,9 +314,9 @@ class AgentSearch:
 
         # 3. 创建复用的客户端实例
         has_exa = self.config.exa_api_key is not None
-        exa = ExaClient(self.config.exa_api_key) if has_exa else None
-        brave = BraveClient(self.config.brave_api_key) if use_brave else None
-        tavily = TavilyClient(self.config.tavily_api_key) if use_tavily else None
+        exa = _get_exa_client_cls()(self.config.exa_api_key) if has_exa else None
+        brave = _get_brave_client_cls()(self.config.brave_api_key) if use_brave else None
+        tavily = _get_tavily_client_cls()(self.config.tavily_api_key) if use_tavily else None
 
         try:
             if exa:

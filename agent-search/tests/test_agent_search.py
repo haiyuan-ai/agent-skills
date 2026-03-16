@@ -2,8 +2,10 @@
 Agent Search 测试
 """
 import asyncio
+import builtins
 import contextlib
 import io
+import importlib
 import pytest
 import sqlite3
 import sys
@@ -1161,6 +1163,55 @@ class TestConfigPaths:
 
 
 class TestSearchFlow:
+    def test_ddgs_search_should_not_require_aiohttp_import(self, monkeypatch):
+        original_import = builtins.__import__
+
+        def guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
+            if name == "aiohttp":
+                raise ModuleNotFoundError("No module named 'aiohttp'")
+            return original_import(name, globals, locals, fromlist, level)
+
+        monkeypatch.setattr(builtins, "__import__", guarded_import)
+
+        import agent_search
+
+        reloaded = importlib.reload(agent_search)
+
+        class FakeDdgsClient:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc_val, exc_tb):
+                return None
+
+            async def search_with_timeout(self, query, num_results):
+                return [
+                    {
+                        "source": "ddgs",
+                        "title": "Latest update",
+                        "url": "https://example.com/latest",
+                        "text": "Recent development summary",
+                        "highlights": [],
+                        "score": 0.9,
+                        "published_date": "2026-03-16",
+                        "author": "",
+                        "position": 1,
+                    }
+                ]
+
+        monkeypatch.setattr(reloaded, "DdgsClient", FakeDdgsClient)
+
+        result = asyncio.run(
+            reloaded.search(
+                "latest updates",
+                source="ddgs",
+                use_cache=False,
+            )
+        )
+
+        assert result["sources_used"] == ["ddgs"]
+        assert result["results"][0]["title"] == "Latest update"
+
     def test_non_exact_cache_hit_rewrites_query(self, monkeypatch):
         import agent_search
 
