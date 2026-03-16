@@ -27,40 +27,6 @@ PDF as input is not supported (pandoc limitation).
 
 ---
 
-## Quick Reference
-
-```bash
-# Markdown to PDF (recommended: use script)
-bash ~/.agents/skills/pandoc-converter/scripts/convert-to-pdf.sh input.md
-
-# Markdown to PDF (manual)
-pandoc input.md -o output.pdf --pdf-engine=xelatex -V CJKmainfont="PingFang SC"
-
-# Markdown to Word
-python3 ~/.agents/skills/pandoc-converter/scripts/fix-ascii-art.py input.md  # optional
-pandoc input.md -o output.docx --reference-doc=~/.agents/skills/pandoc-converter/references/reference.docx
-
-# Markdown to HTML
-pandoc input.md -o output.html --standalone
-
-# Word to Markdown
-pandoc input.docx -o output.md --extract-media=./media
-
-# Word to PDF
-pandoc input.docx -o output.pdf --pdf-engine=xelatex -V CJKmainfont="PingFang SC"
-
-# HTML to Markdown
-pandoc input.html -o output.md --wrap=none
-
-# HTML to Word
-pandoc input.html -o output.docx --reference-doc=~/.agents/skills/pandoc-converter/references/reference.docx
-
-# HTML to PDF
-pandoc input.html -o output.pdf --pdf-engine=xelatex -V CJKmainfont="PingFang SC"
-```
-
----
-
 ## Scripts
 
 | Script | Purpose | When to use |
@@ -111,11 +77,6 @@ pandoc input.md -o output.pdf \
 -V toc=true
 ```
 
-**Font recommendations**:
-- macOS: `PingFang SC` (system font)
-- Cross-platform: `Source Han Sans CN` / `Noto Sans CJK SC`
-- Code: `Sarasa Fixed SC` (CJK-aware monospace)
-
 📚 **Font details**: [references/fonts.md](references/fonts.md)
 
 #### Word Output
@@ -138,11 +99,6 @@ Built-in `reference.docx` includes:
 - **English font**: Times New Roman
 - **Code font**: Sarasa Fixed SC (CJK-aware monospace)
 - **Table styles**: Header shading, vertical center alignment
-
-**Table tips**:
-- Keep tables under 6 columns for readability
-- Use short cell content; break long text into multiple rows
-- Avoid nested lists inside table cells
 
 #### Markdown Output
 
@@ -191,15 +147,9 @@ Execute the command. Common issues:
 
 ### 5. Batch conversion
 
+Use a for-loop with the same options as single-file conversion:
 ```bash
-# All .md to PDF
 for f in *.md; do pandoc "$f" -o "${f%.md}.pdf" --pdf-engine=xelatex -V CJKmainfont="PingFang SC"; done
-
-# All .docx to Markdown
-for f in *.docx; do pandoc "$f" -o "${f%.docx}.md" --extract-media=./media --wrap=none; done
-
-# All .md to HTML
-for f in *.md; do pandoc "$f" -o "${f%.md}.html" --standalone; done
 ```
 
 ---
@@ -232,25 +182,6 @@ The following features are documented in separate reference files:
   - Run `python3 ~/.agents/skills/pandoc-converter/scripts/fix-ascii-art.py input.md`
   - Use `convert-to-pdf.sh` which enforces monospace font
 - **Code block background shows trailing spaces**: reference.docx has no shading on Source Code style
-
----
-
-## Tips & Tricks
-
-**Dry run**: Add `--verbose` to see what pandoc is doing.
-
-**List supported formats**:
-```bash
-pandoc --list-input-formats
-pandoc --list-output-formats
-```
-
-**Check template**:
-```bash
-pandoc --print-default-template=latex
-```
-
-**Self-contained HTML**: Use `--embed-resources --standalone` for single-file distribution.
 
 ---
 
