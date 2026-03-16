@@ -45,14 +45,14 @@ For better multi-source results, configure `TAVILY_API_KEY`.
 
 ## Configuration
 
-You can configure the tool with environment variables or a config file at `~/.agents/haiyuan-ai/.env`:
+You can configure the tool with environment variables or a config file at `~/.config/haiyuan-ai/.env`:
 
 ```bash
 # Create the config directory
-mkdir -p ~/.agents/haiyuan-ai
+mkdir -p ~/.config/haiyuan-ai
 
 # Create the config file
-cat > ~/.agents/haiyuan-ai/.env << 'EOF'
+cat > ~/.config/haiyuan-ai/.env << 'EOF'
 TAVILY_API_KEY="your-tavily-api-key"
 BRAVE_API_KEY="your-brave-api-key"
 EXA_API_KEY="your-exa-api-key"
@@ -70,7 +70,8 @@ All search API keys are optional. If you just want to try the tool, skip API key
 
 Configuration priority:
 1. Environment variables
-2. `~/.agents/haiyuan-ai/.env` config file, recommended because skill updates will not overwrite it
+2. `~/.config/haiyuan-ai/.env` config file (recommended for new installs)
+3. `~/.agents/haiyuan-ai/.env` config file (legacy fallback for existing users)
 
 - `Tavily` is the primary engine, and it is enough for normal low-frequency usage
 - `Brave` is used when configured as an additional source for web, official site, and news queries
@@ -191,7 +192,7 @@ This matters for ambiguous queries like "latest Node.js version" or "Product X l
 
 ## Cache
 
-- Storage path: `~/.agents/haiyuan-ai/agent_search_cache/`
+- Storage path: `~/.config/haiyuan-ai/agent_search_cache/` for new installs, with fallback to `~/.agents/haiyuan-ai/agent_search_cache/` for existing users
 - Match order: exact -> similarity -> vector
 - Default thresholds: similarity match `0.6`, vector match `0.75`
 - TTL is intent-based: `news=1h`, `general=1d`, `troubleshooting=3d`, `comparison=3d`, `release=6h`, `status=6h`

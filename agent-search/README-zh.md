@@ -45,14 +45,14 @@ pip install -r scripts/requirements.txt
 
 ## 配置
 
-支持环境变量或配置文件 `~/.agents/haiyuan-ai/.env`：
+支持环境变量或配置文件 `~/.config/haiyuan-ai/.env`：
 
 ```bash
 # 创建配置目录
-mkdir -p ~/.agents/haiyuan-ai
+mkdir -p ~/.config/haiyuan-ai
 
 # 编辑配置文件
-cat > ~/.agents/haiyuan-ai/.env << 'EOF'
+cat > ~/.config/haiyuan-ai/.env << 'EOF'
 TAVILY_API_KEY="your-tavily-api-key"
 BRAVE_API_KEY="your-brave-api-key"
 EXA_API_KEY="your-exa-api-key"
@@ -70,7 +70,8 @@ EOF
 
 配置方式（按优先级）：
 1. 环境变量
-2. `~/.agents/haiyuan-ai/.env` 配置文件（推荐，更新 skill 时不会被覆盖）
+2. `~/.config/haiyuan-ai/.env` 配置文件（新安装推荐）
+3. `~/.agents/haiyuan-ai/.env` 配置文件（兼容已在使用旧路径的用户）
 
 - `Tavily` 作为主引擎，普通低频用户只配它也能正常使用
 - `Brave` 在已配置时作为网页 / 官方站 / 新闻类补充
@@ -191,7 +192,7 @@ Agent Search 会自动识别查询意图，并在合适时扩展查询，即使�
 
 ## 缓存
 
-- 存储位置: `~/.agents/haiyuan-ai/agent_search_cache/`
+- 存储位置: 新安装默认 `~/.config/haiyuan-ai/agent_search_cache/`，已存在旧缓存目录时兼容 `~/.agents/haiyuan-ai/agent_search_cache/`
 - 匹配层级: 精确 -> 相似 -> 向量
 - 默认阈值: 相似匹配 `0.6`，向量匹配 `0.75`
 - TTL 按意图决定: `news=1h`、`general=1d`、`troubleshooting=3d`、`comparison=3d`、`release=6h`、`status=6h`

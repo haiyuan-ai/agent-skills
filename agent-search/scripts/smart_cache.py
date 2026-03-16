@@ -9,6 +9,7 @@
 5. 缓存统计和命中率分析
 """
 import asyncio
+import contextlib
 import sqlite3
 import json
 import time
@@ -38,6 +39,26 @@ try:
     from .config import get_api_key
 except ImportError:
     from config import get_api_key
+
+try:
+    from .config import get_primary_config_dir, get_legacy_config_dir
+except ImportError:
+    from config import get_primary_config_dir, get_legacy_config_dir
+
+
+def get_default_cache_dir() -> Path:
+    override = os.getenv("AGENT_SEARCH_CACHE_DIR")
+    if override:
+        return Path(os.path.expanduser(override))
+
+    default_root = get_primary_config_dir()
+    legacy_cache_dir = get_legacy_config_dir() / "agent_search_cache"
+    default_cache_dir = default_root / "agent_search_cache"
+    if default_cache_dir.exists():
+        return default_cache_dir
+    if legacy_cache_dir.exists():
+        return legacy_cache_dir
+    return default_cache_dir
 
 
 def _cosine_similarity(v1: List[float], v2: List[float]) -> float:
@@ -117,7 +138,7 @@ class SmartCache:
 
     def __init__(self, cache_dir: Optional[str] = None):
         if cache_dir is None:
-            cache_dir = os.path.expanduser("~/.agents/haiyuan-ai/agent_search_cache")
+            cache_dir = str(get_default_cache_dir())
 
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
@@ -711,18 +732,90 @@ class SmartCache:
         return warnings
 
 
+class NullSmartCache:
+    """No-op cache used when persistent cache initialization fails."""
+
+    vector_search_available = False
+    cache_dir = Path("<disabled>")
+
+    def get(self, query: str, scope: Optional[str] = None) -> Dict:
+        return {
+            "hit": False,
+            "match_type": "none",
+            "similarity": 0.0,
+            "data": None,
+        }
+
+    def set(self, query: str, result_data: Dict, ttl: int = 3600, scope: Optional[str] = None):
+        return None
+
+    def clear(self):
+        return None
+
+    def get_stats(self) -> Dict:
+        return {
+            "total_entries": 0,
+            "active_entries": 0,
+            "expired_entries": 0,
+            "total_hits": 0,
+            "db_size_mb": 0,
+            "cache_dir": str(self.cache_dir),
+            "vector_search_enabled": False,
+            "vector_entries": 0,
+        }
+
+    def list_recent(self, limit: int = 10) -> List[Dict]:
+        return []
+
+    def get_provider_usage_stats(self, year_month: Optional[str] = None) -> List[Dict]:
+        return []
+
+    def get_provider_free_limits(self) -> Dict[str, int]:
+        return {
+            "exa": 1000,
+            "brave": 1000,
+            "tavily": 1000,
+        }
+
+    def get_provider_warnings(self, year_month: Optional[str] = None) -> List[Dict]:
+        return []
+
+    def record_provider_usage(self, provider: str, success: bool = True) -> None:
+        return None
+
+    def set_cached_content(self, url: str, content: Dict, ttl: int = 21600) -> None:
+        return None
+
+    def get_cached_content(self, url: str):
+        return None
+
+    async def warm_vector(self, cache_id: Optional[int], query: str) -> None:
+        return None
+
+
 # 全局缓存实例
-_global_smart_cache: Optional[SmartCache] = None
+_global_smart_cache: Optional[object] = None
 
 
-def get_smart_cache() -> SmartCache:
+def get_smart_cache():
     global _global_smart_cache
     if _global_smart_cache is None:
-        _global_smart_cache = SmartCache()
+        try:
+            _global_smart_cache = SmartCache()
+        except Exception as exc:
+            suggested_dir = get_default_cache_dir()
+            print(
+                "⚠️ Cache unavailable, continuing without persistent cache: "
+                f"{exc}. Ensure the cache path is writable or set "
+                f"AGENT_SEARCH_CACHE_DIR (for example: {suggested_dir})."
+            )
+            _global_smart_cache = NullSmartCache()
     return _global_smart_cache
 
 
 def clear_smart_cache():
     global _global_smart_cache
     if _global_smart_cache:
-        _global_smart_cache.clear()
+        with contextlib.suppress(Exception):
+            _global_smart_cache.clear()
+    _global_smart_cache = None

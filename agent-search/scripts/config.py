@@ -6,12 +6,38 @@ from pathlib import Path
 from typing import Optional
 
 
+def get_primary_config_dir() -> Path:
+    return Path.home() / ".config" / "haiyuan-ai"
+
+
+def get_legacy_config_dir() -> Path:
+    return Path.home() / ".agents" / "haiyuan-ai"
+
+
+def get_primary_env_path() -> Path:
+    return get_primary_config_dir() / ".env"
+
+
+def get_legacy_env_path() -> Path:
+    return get_legacy_config_dir() / ".env"
+
+
+def get_default_env_path() -> Path:
+    primary_env_path = get_primary_env_path()
+    legacy_env_path = get_legacy_env_path()
+    if primary_env_path.exists():
+        return primary_env_path
+    if legacy_env_path.exists():
+        return legacy_env_path
+    return primary_env_path
+
+
 def load_env_file(env_path: Optional[Path] = None) -> dict:
     """
     从 .env 文件加载环境变量
 
     Args:
-        env_path: .env 文件路径，默认为 ~/.agents/haiyuan-ai/.env 或当前目录的 .env 文件
+        env_path: .env 文件路径，默认为 ~/.config/haiyuan-ai/.env，并兼容 ~/.agents/haiyuan-ai/.env
 
     Returns:
         加载的环境变量字典
@@ -20,14 +46,14 @@ def load_env_file(env_path: Optional[Path] = None) -> dict:
 
     # 如果未指定路径，尝试查找 .env 文件
     if env_path is None:
-        # 默认配置目录
-        default_config_dir = Path.home() / ".agents" / "haiyuan-ai"
-        default_env_path = default_config_dir / ".env"
+        primary_env_path = get_primary_env_path()
+        legacy_env_path = get_legacy_env_path()
 
         # 从当前文件位置开始向上查找
         current_dir = Path(__file__).parent.resolve()
         search_paths = [
-            default_env_path,               # ~/.agents/haiyuan-ai/.env (推荐)
+            primary_env_path,               # ~/.config/haiyuan-ai/.env (推荐)
+            legacy_env_path,                # ~/.agents/haiyuan-ai/.env (兼容旧路径)
             current_dir / ".env",           # scripts/.env
             current_dir.parent / ".env",    # agent-search/.env
             Path.cwd() / ".env",            # 当前工作目录/.env
@@ -105,16 +131,15 @@ def save_api_key(key_name: str, key_value: str, env_path: Optional[Path] = None)
     Args:
         key_name: API Key 名称
         key_value: API Key 值
-        env_path: .env 文件路径，默认为 ~/.agents/haiyuan-ai/.env
+        env_path: .env 文件路径，默认为 ~/.config/haiyuan-ai/.env，并兼容 ~/.agents/haiyuan-ai/.env
 
     Returns:
         保存的文件路径
     """
     if env_path is None:
-        # 默认保存到 ~/.agents/haiyuan-ai/.env
-        config_dir = Path.home() / ".agents" / "haiyuan-ai"
-        config_dir.mkdir(parents=True, exist_ok=True)
-        env_path = config_dir / ".env"
+        # 默认保存到 ~/.config/haiyuan-ai/.env；如果旧 .env 已存在且新路径不存在，则继续写旧路径
+        env_path = get_default_env_path()
+        env_path.parent.mkdir(parents=True, exist_ok=True)
 
     env_path = Path(env_path)
 

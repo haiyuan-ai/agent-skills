@@ -5,17 +5,19 @@ import asyncio
 import contextlib
 import io
 import pytest
+import sqlite3
 import sys
 import os
 import tempfile
 import time
+from pathlib import Path
 
 # 添加 scripts 到路径
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'scripts'))
 
 from content_safety import apply_content_safety, sanitize_untrusted_text
 from result_processor import ResultMerger, QualityScorer
-from smart_cache import SmartCache
+from smart_cache import SmartCache, NullSmartCache
 from smart_similarity import SmartSimilarity
 from tavily_client import TavilyClient
 
@@ -1103,6 +1105,59 @@ class TestSmartCacheWarmVector:
         ).fetchone()[0]
         assert stored == 1
         assert thread_calls == ["<lambda>"]
+
+
+class TestSmartCacheFallback:
+    def test_get_smart_cache_should_fallback_when_cache_init_fails(self, monkeypatch):
+        import smart_cache
+
+        smart_cache.clear_smart_cache()
+
+        def fail_init():
+            raise sqlite3.OperationalError("unable to open database file")
+
+        monkeypatch.setattr("smart_cache.SmartCache", fail_init)
+
+        cache = smart_cache.get_smart_cache()
+
+        assert isinstance(cache, NullSmartCache)
+        assert cache.get("test")["hit"] is False
+
+        smart_cache.clear_smart_cache()
+
+
+class TestConfigPaths:
+    def test_default_env_path_should_prefer_legacy_when_only_legacy_env_exists(self, monkeypatch, tmp_path):
+        import config
+
+        home = tmp_path / "home"
+        legacy_env = home / ".agents" / "haiyuan-ai" / ".env"
+        legacy_env.parent.mkdir(parents=True)
+        legacy_env.write_text("TAVILY_API_KEY=test\n", encoding="utf-8")
+        monkeypatch.setattr("config.Path.home", lambda: home)
+
+        assert config.get_default_env_path() == legacy_env
+
+    def test_default_env_path_should_prefer_primary_when_present(self, monkeypatch, tmp_path):
+        import config
+
+        home = tmp_path / "home"
+        primary_env = home / ".config" / "haiyuan-ai" / ".env"
+        legacy_env = home / ".agents" / "haiyuan-ai" / ".env"
+        primary_env.parent.mkdir(parents=True)
+        legacy_env.parent.mkdir(parents=True)
+        primary_env.write_text("TAVILY_API_KEY=primary\n", encoding="utf-8")
+        legacy_env.write_text("TAVILY_API_KEY=legacy\n", encoding="utf-8")
+        monkeypatch.setattr("config.Path.home", lambda: home)
+
+        assert config.get_default_env_path() == primary_env
+
+    def test_default_cache_dir_should_honor_override(self, monkeypatch):
+        import smart_cache
+
+        monkeypatch.setenv("AGENT_SEARCH_CACHE_DIR", "/tmp/agent-search-cache-test")
+
+        assert smart_cache.get_default_cache_dir() == Path("/tmp/agent-search-cache-test")
 
 
 class TestSearchFlow:
