@@ -10,6 +10,16 @@
 npx skills add haiyuan-ai/agent-skills@agent-search
 ```
 
+## 快速开始
+
+```bash
+pip install -r scripts/requirements.txt
+./scripts/agent-search-cli "Python 最新版本" --json --source ddgs
+```
+
+首次体验可直接用 `--source ddgs`，无需 API Key。
+如果需要更好的多源结果，再配置 `TAVILY_API_KEY`。
+
 ## 特性
 
 - 多源搜索: Tavily 主引擎 + Brave 补充 + Exa 语义兜底 + DDGS (DuckDuckGo) 零配置兜底
@@ -27,9 +37,120 @@ npx skills add haiyuan-ai/agent-skills@agent-search
 - API Key 只会发给已配置的搜索提供方，不会出现在 CLI 输出里，也不会被写入搜索结果内容。
 - 第三方 snippet 会先清洗，再仅作为预览返回；路由、评分和 rerank 只使用 URL、domain、title、date、source 等可信元数据。
 
+## 依赖
+
+```bash
+pip install -r scripts/requirements.txt
+```
+
+推荐 Python 3.12+。
+
+运行测试还需要：
+
+```bash
+pip install pytest
+```
+
+## 配置
+
+支持环境变量或配置文件 `~/.agents/haiyuan-ai/.env`：
+
+```bash
+# 创建配置目录
+mkdir -p ~/.agents/haiyuan-ai
+
+# 编辑配置文件
+cat > ~/.agents/haiyuan-ai/.env << 'EOF'
+TAVILY_API_KEY="your-tavily-api-key"
+BRAVE_API_KEY="your-brave-api-key"
+EXA_API_KEY="your-exa-api-key"
+GEMINI_API_KEY="your-gemini-api-key"
+EOF
+```
+
+所有搜索 API Key 均为可选。如果只是先试用，直接跳过 API Key 并使用 `--source ddgs` 即可。配置 `TAVILY_API_KEY` 可获得更好的多源搜索结果：
+
+| API | 免费额度 | 特点 |
+|-----|---------|------|
+| **Tavily** | 1,000 credits/month | 无需绑卡，推荐作为主引擎 |
+| **Brave** | 每月 $5 credits（约 1000 次）| 需绑卡，适合网页/新闻搜索 |
+| **Exa** | 1,000 requests/month | 无需绑卡，适合语义补强 |
+
+配置方式（按优先级）：
+1. 环境变量
+2. `~/.agents/haiyuan-ai/.env` 配置文件（推荐，更新 skill 时不会被覆盖）
+
+- `Tavily` 作为主引擎，普通低频用户只配它也能正常使用
+- `Brave` 在已配置时作为网页 / 官方站 / 新闻类补充
+- `Exa` 默认不走首轮，只在结果质量不足或 `mode=deep` 时补充
+
+出于安全原因，skill 不再抓取第三方网页正文，也不会在运行时加载整页内容到 agent 上下文中。
+
+用于评估“超过免费额度后是否继续付费调用”的粗略成本参考：
+
+| API | 每 1k 请求成本 | 单次请求成本 |
+|-----|---------------|-------------|
+| Brave | $5 | $0.005 |
+| Tavily basic | $8 | $0.008 |
+
+这张表适合作为继续调用的成本估算依据；实际计费请以各服务商当期官方价格为准。
+
+## CLI
+
+```bash
+# 结构化 JSON 输出
+./scripts/agent-search-cli "Python 异步编程" --json
+
+# 使用 DuckDuckGo 搜索（无需 API Key）
+./scripts/agent-search-cli "AI 编程助手" --source ddgs --json
+
+# 深度搜索（更广泛检索，但仍为摘要模式）
+./scripts/agent-search-cli "Claude 3.5 新功能" --mode deep --max-results 15
+
+# 不扩展查询
+./scripts/agent-search-cli "AI 编程助手" --no-expand
+
+# 输出到文件
+./scripts/agent-search-cli "AI 编程助手" --json -o results.json
+
+# 人类可读输出
+./scripts/agent-search-cli "Python 异步编程"
+```
+
+## Python API
+
+```python
+import asyncio
+from scripts.agent_search import search, AgentSearch, SearchConfig
+
+async def main():
+    result = await search("Claude 3.5 Sonnet 新功能", mode="standard")
+    print(result["results"][0]["title"])
+
+asyncio.run(main())
+```
+
+```python
+config = SearchConfig(
+    exa_api_key="...",
+    brave_api_key="...",
+    tavily_api_key="...",
+    max_results=10,
+    mode="standard",
+)
+
+searcher = AgentSearch(config)
+result = await searcher.search("Python 异步编程")
+```
+
+```python
+# 仅使用 DDGS 搜索（无需 API Key）
+result = await search("Python 异步编程", source="ddgs")
+```
+
 ## 搜索策略
 
-Agent Search 会自动识别查询意图，并按不同意图使用不同搜索策略。
+Agent Search 会自动识别查询意图，并在合适时扩展查询，即使在 `deep` 模式下也仍然只返回摘要，不抓取整页内容。发布、新闻、近况等 freshness-sensitive 查询会使用更广泛的检索和更强的搜索源路由。
 
 ### 意图识别
 
@@ -71,124 +192,10 @@ Agent Search 会自动识别查询意图，并按不同意图使用不同搜索�
 - `mode=standard`: 扩展查询，只返回搜索摘要安全摘录
 - `mode=deep`: 更广泛检索与 advanced 搜索深度，但仍只返回搜索摘要安全摘录
 
-### 搜索源
+## 搜索源
 
 - `auto`（默认）：使用已配置的 Tavily/Brave/Exa API Key 进行多源搜索。未配置任何 Key 或所有引擎无结果时自动降级到 DDGS。
 - `ddgs`：仅使用 DuckDuckGo 搜索，无需 API Key。
-
-```bash
-# 显式使用 DDGS
-./scripts/agent-search-cli "query" --json --source ddgs
-```
-
-## 依赖
-
-```bash
-pip install -r scripts/requirements.txt
-```
-
-运行测试还需要：
-
-```bash
-pip install pytest
-```
-
-## 配置
-
-支持环境变量或配置文件 `~/.agents/haiyuan-ai/.env`：
-
-```bash
-# 创建配置目录
-mkdir -p ~/.agents/haiyuan-ai
-
-# 编辑配置文件
-cat > ~/.agents/haiyuan-ai/.env << 'EOF'
-TAVILY_API_KEY="your-tavily-api-key"
-BRAVE_API_KEY="your-brave-api-key"
-EXA_API_KEY="your-exa-api-key"
-GEMINI_API_KEY="your-gemini-api-key"
-EOF
-```
-
-所有搜索 API Key 均为可选。未配置任何 Key 时自动降级到 DDGS (DuckDuckGo)。配置 `TAVILY_API_KEY` 可获得更好的多源搜索结果：
-
-| API | 免费额度 | 特点 |
-|-----|---------|------|
-| **Tavily** | 1,000 credits/month | 无需绑卡，推荐作为主引擎 |
-| **Brave** | 每月 $5 credits（约 1000 次）| 需绑卡，适合网页/新闻搜索 |
-| **Exa** | 1,000 requests/month | 无需绑卡，适合语义补强 |
-
-配置方式（按优先级）：
-1. 环境变量
-2. `~/.agents/haiyuan-ai/.env` 配置文件（推荐，更新 skill 时不会被覆盖）
-
-- `Tavily` 作为主引擎，普通低频用户只配它也能正常使用
-- `Brave` 在已配置时作为网页 / 官方站 / 新闻类补充
-- `Exa` 默认不走首轮，只在结果质量不足或 `mode=deep` 时补充
-
-出于安全原因，skill 不再抓取第三方网页正文，也不会在运行时加载整页内容到 agent 上下文中。
-
-用于评估“超过免费额度后是否继续付费调用”的粗略成本参考：
-
-| API | 每 1k 请求成本 | 单次请求成本 |
-|-----|---------------|-------------|
-| Brave | $5 | $0.005 |
-| Tavily basic | $8 | $0.008 |
-
-这张表适合作为继续调用的成本估算依据；实际计费请以各服务商当期官方价格为准。
-
-## CLI
-
-```bash
-# 人类可读输出
-./scripts/agent-search-cli "Python 异步编程"
-
-# 结构化 JSON 输出
-./scripts/agent-search-cli "Python 异步编程" --json
-
-# 深度搜索（更广泛检索，但仍为摘要模式）
-./scripts/agent-search-cli "Claude 3.5 新功能" --mode deep --max-results 15
-
-# 不扩展查询
-./scripts/agent-search-cli "AI 编程助手" --no-expand
-
-# 使用 DuckDuckGo 搜索（无需 API Key）
-./scripts/agent-search-cli "AI 编程助手" --source ddgs --json
-
-# 输出到文件
-./scripts/agent-search-cli "AI 编程助手" --json -o results.json
-```
-
-## Python API
-
-```python
-import asyncio
-from scripts.agent_search import search, AgentSearch, SearchConfig
-
-async def main():
-    result = await search("Claude 3.5 Sonnet 新功能", mode="standard")
-    print(result["results"][0]["title"])
-
-asyncio.run(main())
-```
-
-```python
-config = SearchConfig(
-    exa_api_key="...",
-    brave_api_key="...",
-    tavily_api_key="...",
-    max_results=10,
-    mode="standard",
-)
-
-searcher = AgentSearch(config)
-result = await searcher.search("Python 异步编程")
-```
-
-```python
-# 仅使用 DDGS 搜索（无需 API Key）
-result = await search("Python 异步编程", source="ddgs")
-```
 
 ## 缓存
 

@@ -10,6 +10,16 @@ Deep, structured web search for agents that support `SKILL.md`.
 npx skills add haiyuan-ai/agent-skills@agent-search
 ```
 
+## Quick Start
+
+```bash
+pip install -r scripts/requirements.txt
+./scripts/agent-search-cli "latest Python release" --json --source ddgs
+```
+
+For a zero-config first run, use `--source ddgs`.
+For better multi-source results, configure `TAVILY_API_KEY`.
+
 ## Features
 
 - Multi-source search: Tavily as the primary engine, Brave as a supplement, Exa as a semantic fallback, and DDGS (DuckDuckGo) as a zero-config fallback
@@ -27,9 +37,120 @@ npx skills add haiyuan-ai/agent-skills@agent-search
 - API keys are only sent to the configured provider and are not emitted in CLI output or cached result bodies.
 - Untrusted third-party snippet text is sanitized and returned for preview only. Routing, scoring, and reranking decisions use trusted metadata only.
 
+## Dependencies
+
+```bash
+pip install -r scripts/requirements.txt
+```
+
+Recommended: Python 3.12+.
+
+To run tests, also install:
+
+```bash
+pip install pytest
+```
+
+## Configuration
+
+You can configure the tool with environment variables or a config file at `~/.agents/haiyuan-ai/.env`:
+
+```bash
+# Create the config directory
+mkdir -p ~/.agents/haiyuan-ai
+
+# Create the config file
+cat > ~/.agents/haiyuan-ai/.env << 'EOF'
+TAVILY_API_KEY="your-tavily-api-key"
+BRAVE_API_KEY="your-brave-api-key"
+EXA_API_KEY="your-exa-api-key"
+GEMINI_API_KEY="your-gemini-api-key"
+EOF
+```
+
+All search API keys are optional. If you just want to try the tool, skip API keys and use `--source ddgs`. For better multi-source results, `TAVILY_API_KEY` is recommended:
+
+| API | Free Tier | Notes |
+|-----|-----------|-------|
+| **Tavily** | 1,000 credits/month | No card required, recommended as the primary engine |
+| **Brave** | $5 monthly credits, about 1,000 requests | Card required, useful for web and news search |
+| **Exa** | 1,000 requests/month | No card required, useful for semantic coverage |
+
+Configuration priority:
+1. Environment variables
+2. `~/.agents/haiyuan-ai/.env` config file, recommended because skill updates will not overwrite it
+
+- `Tavily` is the primary engine, and it is enough for normal low-frequency usage
+- `Brave` is used when configured as an additional source for web, official site, and news queries
+- `Exa` is not used in the first pass by default and only supplements weak results or `mode=deep`
+
+For safety reasons, this skill no longer fetches third-party page bodies and does not load full pages into the agent context at runtime.
+
+Approximate cost reference for deciding whether to continue paid calls after the free tier:
+
+| API | Cost per 1k Requests | Cost per Request |
+|-----|----------------------|------------------|
+| Brave | $5 | $0.005 |
+| Tavily basic | $8 | $0.008 |
+
+Use this table only as a rough estimate. Always check current official pricing from the providers.
+
+## CLI
+
+```bash
+# Structured JSON output
+./scripts/agent-search-cli "Python async programming" --json
+
+# Use DuckDuckGo search (no API key needed)
+./scripts/agent-search-cli "AI coding assistant" --source ddgs --json
+
+# Deep search with broader retrieval, still snippet-only mode
+./scripts/agent-search-cli "Claude 3.5 new features" --mode deep --max-results 15
+
+# Disable query expansion
+./scripts/agent-search-cli "AI coding assistant" --no-expand
+
+# Write output to a file
+./scripts/agent-search-cli "AI coding assistant" --json -o results.json
+
+# Human-readable output
+./scripts/agent-search-cli "Python async programming"
+```
+
+## Python API
+
+```python
+import asyncio
+from scripts.agent_search import search, AgentSearch, SearchConfig
+
+async def main():
+    result = await search("Claude 3.5 Sonnet new features", mode="standard")
+    print(result["results"][0]["title"])
+
+asyncio.run(main())
+```
+
+```python
+config = SearchConfig(
+    exa_api_key="...",
+    brave_api_key="...",
+    tavily_api_key="...",
+    max_results=10,
+    mode="standard",
+)
+
+searcher = AgentSearch(config)
+result = await searcher.search("Python async programming")
+```
+
+```python
+# DDGS-only search (no API key needed)
+result = await search("Python async programming", source="ddgs")
+```
+
 ## Search Strategy
 
-Agent Search detects query intent automatically and uses different strategies for different scenarios.
+Agent Search auto-detects query intent, expands queries when useful, and stays in snippet-only mode even in `deep` searches. Freshness-sensitive queries such as releases, news, and recent status checks use broader retrieval and stronger source routing.
 
 ### Intent Detection
 
@@ -71,124 +192,10 @@ This matters for ambiguous queries like "latest Node.js version" or "Product X l
 - `mode=standard`: Expands queries, still returns only safe excerpts from search snippets
 - `mode=deep`: Broader retrieval with advanced search depth, but still returns only safe excerpts from search snippets
 
-### Search Sources
+## Search Sources
 
 - `auto` (default): Multi-source search with Tavily/Brave/Exa API keys. Falls back to DDGS if no keys are configured or all engines return no results.
 - `ddgs`: DuckDuckGo only via the DDGS library. No API key needed.
-
-```bash
-# Use DDGS explicitly
-./scripts/agent-search-cli "query" --json --source ddgs
-```
-
-## Dependencies
-
-```bash
-pip install -r scripts/requirements.txt
-```
-
-To run tests, also install:
-
-```bash
-pip install pytest
-```
-
-## Configuration
-
-You can configure the tool with environment variables or a config file at `~/.agents/haiyuan-ai/.env`:
-
-```bash
-# Create the config directory
-mkdir -p ~/.agents/haiyuan-ai
-
-# Create the config file
-cat > ~/.agents/haiyuan-ai/.env << 'EOF'
-TAVILY_API_KEY="your-tavily-api-key"
-BRAVE_API_KEY="your-brave-api-key"
-EXA_API_KEY="your-exa-api-key"
-GEMINI_API_KEY="your-gemini-api-key"
-EOF
-```
-
-All search API keys are optional. Without any keys, the tool falls back to DDGS (DuckDuckGo). For better multi-source results, `TAVILY_API_KEY` is recommended:
-
-| API | Free Tier | Notes |
-|-----|-----------|-------|
-| **Tavily** | 1,000 credits/month | No card required, recommended as the primary engine |
-| **Brave** | $5 monthly credits, about 1,000 requests | Card required, useful for web and news search |
-| **Exa** | 1,000 requests/month | No card required, useful for semantic coverage |
-
-Configuration priority:
-1. Environment variables
-2. `~/.agents/haiyuan-ai/.env` config file, recommended because skill updates will not overwrite it
-
-- `Tavily` is the primary engine, and it is enough for normal low-frequency usage
-- `Brave` is used when configured as an additional source for web, official site, and news queries
-- `Exa` is not used in the first pass by default and only supplements weak results or `mode=deep`
-
-For safety reasons, this skill no longer fetches third-party page bodies and does not load full pages into the agent context at runtime.
-
-Approximate cost reference for deciding whether to continue paid calls after the free tier:
-
-| API | Cost per 1k Requests | Cost per Request |
-|-----|----------------------|------------------|
-| Brave | $5 | $0.005 |
-| Tavily basic | $8 | $0.008 |
-
-Use this table only as a rough estimate. Always check current official pricing from the providers.
-
-## CLI
-
-```bash
-# Human-readable output
-./scripts/agent-search-cli "Python async programming"
-
-# Structured JSON output
-./scripts/agent-search-cli "Python async programming" --json
-
-# Deep search with broader retrieval, still snippet-only mode
-./scripts/agent-search-cli "Claude 3.5 new features" --mode deep --max-results 15
-
-# Disable query expansion
-./scripts/agent-search-cli "AI coding assistant" --no-expand
-
-# Use DuckDuckGo search (no API key needed)
-./scripts/agent-search-cli "AI coding assistant" --source ddgs --json
-
-# Write output to a file
-./scripts/agent-search-cli "AI coding assistant" --json -o results.json
-```
-
-## Python API
-
-```python
-import asyncio
-from scripts.agent_search import search, AgentSearch, SearchConfig
-
-async def main():
-    result = await search("Claude 3.5 Sonnet new features", mode="standard")
-    print(result["results"][0]["title"])
-
-asyncio.run(main())
-```
-
-```python
-config = SearchConfig(
-    exa_api_key="...",
-    brave_api_key="...",
-    tavily_api_key="...",
-    max_results=10,
-    mode="standard",
-)
-
-searcher = AgentSearch(config)
-result = await searcher.search("Python async programming")
-```
-
-```python
-# DDGS-only search (no API key needed)
-result = await search("Python async programming", source="ddgs")
-```
 
 ## Cache
 
